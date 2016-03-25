@@ -1,0 +1,9 @@
+[package]
+name = "tatsoryk-server"
+description = "Implementation of the server for Tatsoryk"
+repository = "https://github.com/LoungeCPP/Tatsoryk/tree/master/server"
+readme = "README.md"
+keywords = ["game", "lounge", "server"]
+license = "MIT"
+version = "0.1.0"
+authors = ["nabijaczleweli <nabijaczleweli@gmail.com>"]
