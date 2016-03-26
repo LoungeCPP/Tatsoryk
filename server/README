@@ -1,0 +1,2 @@
+1. Install Rust 1.7 (multirust recommended).
+2. Run `cargo run`. By default server listens on 127.0.0.1:8080.

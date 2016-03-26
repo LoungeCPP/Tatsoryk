@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Tatsoryk Client</title>
+
+        <link rel="stylesheet" href="game.css">
+        <script src="vendor/keypress.js"></script>
+        <script src="game.js"></script>
+    </head>
+    <body>
+        <div id="control-panel">
+            <input id="server-address" value="ws://localhost:8000/ws">
+            <input id="connect" type="button" value="Connect">
+            <input id="disconnect" type="button" value="Disconnect">
+        </div>
+
+        <canvas id="game-canvas" width="1280" height="720"></canvas>
+    </body>
+</html>
