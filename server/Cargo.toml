@@ -6,4 +6,12 @@ readme = "README.md"
 keywords = ["game", "lounge", "server"]
 license = "MIT"
 version = "0.1.0"
-authors = ["nabijaczleweli <nabijaczleweli@gmail.com>"]
+authors = ["nabijaczleweli <nabijaczleweli@gmail.com>",
+           "Cat Plus Plus <piotrlegnica@piotrl.pl>"]
+
+[dependencies]
+serde = "0.7"
+serde_json = "0.7"
+
+[dev-dependencies]
+rand = "0.3"

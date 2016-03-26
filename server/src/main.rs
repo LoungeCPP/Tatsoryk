@@ -10,6 +10,11 @@
     unused_results,
 )]
 
+extern crate serde_json;
+extern crate serde;
+
+mod message;
+
 use std::env;
 use std::vec::Vec;
 
