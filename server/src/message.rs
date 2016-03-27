@@ -47,6 +47,7 @@
 //!
 //! All malformed messages MUST be rejected.
 
+use std::str::FromStr;
 use std::collections::BTreeMap;
 use serde;
 use serde_json;
@@ -100,13 +101,14 @@ pub enum Message {
     /// - `x` (f32) — position X of the player at the moment of firing (center)
     /// - `y` (f32) — position Y of the player at the moment of firing (center)
     /// - `aim_x` (f32) — player's aiming vector X at the moment of firing
-    /// - `aim_y` (f32) — player's aiming vector Y at the moment of firing
-    ///
-    /// (aiming vector MUST be normalised)
+    /// - `aim_y` (f32) — player's aiming vector Y at the moment of firing (aiming vector MUST be normalised)
     ShotsFired {
         id: u32,
-        speed: f32,
-        fire_speed: f32,
+        bullet_id: u32,
+        x: f32,
+        y: f32,
+        aim_x: f32,
+        aim_y: f32,
     },
     /// **player_spawned** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
     ///
@@ -118,8 +120,6 @@ pub enum Message {
         id: u32,
         x: f32,
         y: f32,
-        move_x: f32,
-        move_y: f32,
     },
     /// **player_destroyed** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
     ///
@@ -139,8 +139,7 @@ pub enum Message {
     /// - `x` (f32) — position X of the player when they started to move (center)
     /// - `y` (f32) — position Y of the player when they started to move (center)
     /// - `move_x` (f32) — player's movement vector X
-    /// - `move_y` (f32) — player's movement vector Y
-    /// (movement vector MUST be normalised)
+    /// - `move_y` (f32) — player's movement vector Y (movement vector MUST be normalised)
     PlayerMoving {
         id: u32,
         x: f32,
@@ -158,12 +157,12 @@ pub enum Message {
         id: u32,
         x: f32,
         y: f32,
-        move_x: f32,
-        move_y: f32,
     },
     /// **world_state** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
     ///
-    /// **world_state** — full update of the world (bullets not included because their movement vector never changes so the client should be able to render them perfectly without full update), sent by the server to all connected clients from time to time
+    /// **world_state** — full update of the world
+    ///                   (bullets not included because their movement vector never changes so the client
+    ///                   should be able to render them perfectly without full update), sent by the server to all connected clients from time to time
     /// - `player_count` (u32) — count of all connected players
     /// - `alive_players` (Player[]) — an array of all currently alive players, each containing:
     ///   - `id` (u32) — ID of the player
@@ -225,12 +224,12 @@ impl ToString for Message {
                 add_data_entry(&mut values, "id", &id);
                 "player_left"
             }
-            &Message::ShotsFired{id, speed, fire_speed} => {
-                add_data_id_speeds_entries(&mut values, id, speed, fire_speed);
+            &Message::ShotsFired{id, bullet_id, x, y, aim_x, aim_y} => {
+                add_shot_data_entries(&mut values, id, bullet_id, x, y, aim_x, aim_y);
                 "shots_fired"
             }
-            &Message::PlayerSpawned{id, x, y, move_x, move_y} => {
-                add_data_id_pos_moves_entries(&mut values, id, x, y, move_x, move_y);
+            &Message::PlayerSpawned{id, x, y} => {
+                add_data_id_pos_entries(&mut values, id, x, y);
                 "player_spawned"
             }
             &Message::PlayerDestroyed{id, killer_id, bullet_id} => {
@@ -249,11 +248,11 @@ impl ToString for Message {
                 add_data_id_pos_moves_entries(&mut values, id, x, y, move_x, move_y);
                 "player_moving"
             }
-            &Message::PlayerStopped{id, x, y, move_x, move_y} => {
-                add_data_id_pos_moves_entries(&mut values, id, x, y, move_x, move_y);
+            &Message::PlayerStopped{id, x, y} => {
+                add_data_id_pos_entries(&mut values, id, x, y);
                 "player_stopped"
             }
-            &Message::WorldState => "world_state",  // TODO
+            &Message::WorldState => "world_state",  //TODO
             &Message::StartMoving{move_x, move_y} => {
                 add_data_move_entries(&mut values, move_x, move_y);
                 "start_moving"
@@ -276,6 +275,176 @@ impl ToString for Message {
     }
 }
 
+impl FromStr for Message {
+    type Err = MessageError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let json: serde_json::Value = try!(serde_json::from_str(s));
+
+        match json.as_object() {
+            Some(msg) => {
+                let msg_type = try!(match msg.get("type") {
+                    None => Err(MessageError::PropertyMissing(r#"Top-level Object doesn't have "type""#.to_string())),
+                    Some(msg_type) => {
+                        match msg_type {
+                            &serde_json::Value::String(ref msg_type) => Ok(msg_type),
+                            _ => {
+                                Err(MessageError::BadType(r#"Message type not String"#.to_string()))
+                            }
+                        }
+                    }
+                });
+
+                let keys = msg.keys().collect::<Vec<_>>();
+                if (msg_type == "stop_moving" || msg_type == "world_state") &&
+                   (keys != vec!["data", "type"] || keys != vec!["data"]) {
+                    return Err(MessageError::ExtraneousProperty(format!(r#"Top-level Object is a mismatch for `{{"type"[, "data"]}}`: {:?}"#, keys)));
+                } else if keys != vec!["data", "type"] {
+                    return Err(MessageError::ExtraneousProperty(format!(r#"Top-level Object is a mismatch for `{{"type", "data"}}`: {:?}"#, keys)));
+                }
+
+                match msg.get("data") {
+                    None => {
+                        if msg_type == "stop_moving" {
+                            Ok(Message::StopMoving)
+                        } else if msg_type == "world_state" {
+                            // TODO: implement WorldState
+                            Ok(Message::WorldState)
+                        } else {
+                            Err(MessageError::PropertyMissing(r#"Top-level Object doesn't have "data""#.to_string()))
+                        }
+                    }
+                    Some(data) => {
+                        match data.as_object() {
+                            None => {
+                                Err(MessageError::BadType(r#"Top-level "data" not an Object"#
+                                                              .to_string()))
+                            }
+                            Some(data) => {
+                                // TODO: implement WorldState
+                                if (msg_type == "stop_moving" || msg_type == "world_state") &&
+                                   !data.is_empty() {
+                                    return Err(MessageError::ExtraneousProperty(r#"Non-empty "data" for dataless message"#.to_string()));
+                                }
+
+                                match &msg_type[..] {
+                                    "welcome" => {
+                                        let (id, speed, fire_speed) = try!(decompose_stats(&data));
+                                        Ok(Message::Welcome {
+                                            id: id,
+                                            speed: speed,
+                                            fire_speed: fire_speed,
+                                        })
+                                    }
+                                    "go_away" => {
+                                        Ok(Message::GoAway {
+                                            reason: try!(decompose_reason(&data)),
+                                        })
+                                    }
+                                    "player_joined" => {
+                                        let (id, speed, fire_speed) = try!(decompose_stats(&data));
+                                        Ok(Message::PlayerJoined {
+                                            id: id,
+                                            speed: speed,
+                                            fire_speed: fire_speed,
+                                        })
+                                    }
+                                    "player_left" => {
+                                        Ok(Message::PlayerLeft { id: try!(decompose_id(&data)) })
+                                    }
+                                    "shots_fired" => {
+                                        let (id, bullet_id, x, y, aim_x, aim_y) =
+                                            try!(decompose_shot(&data));
+                                        Ok(Message::ShotsFired {
+                                            id: id,
+                                            bullet_id: bullet_id,
+                                            x: x,
+                                            y: y,
+                                            aim_x: aim_x,
+                                            aim_y: aim_y,
+                                        })
+                                    }
+                                    "player_spawned" => {
+                                        let (id, x, y) = try!(decompose_id_pos(&data));
+                                        Ok(Message::PlayerSpawned {
+                                            id: id,
+                                            x: x,
+                                            y: y,
+                                        })
+                                    }
+                                    "player_destroyed" => {
+                                        let (id, killer_id, bullet_id) =
+                                            try!(decompose_destruction(&data));
+                                        Ok(Message::PlayerDestroyed {
+                                            id: id,
+                                            killer_id: killer_id,
+                                            bullet_id: bullet_id,
+                                        })
+                                    }
+                                    "player_moving" => {
+                                        let (id, x, y, move_x, move_y) =
+                                            try!(decompose_id_pos_moves(&data));
+                                        Ok(Message::PlayerMoving {
+                                            id: id,
+                                            x: x,
+                                            y: y,
+                                            move_x: move_x,
+                                            move_y: move_y,
+                                        })
+                                    }
+                                    "player_stopped" => {
+                                        let (id, x, y) = try!(decompose_id_pos(&data));
+                                        Ok(Message::PlayerStopped {
+                                            id: id,
+                                            x: x,
+                                            y: y,
+                                        })
+                                    }
+                                    "world_state" => Ok(Message::WorldState), // TODO
+                                    "start_moving" => {
+                                        let (move_x, move_y) = try!(decompose_moves(&data));
+                                        Ok(Message::StartMoving {
+                                            move_x: move_x,
+                                            move_y: move_y,
+                                        })
+                                    }
+                                    "stop_moving" => Ok(Message::StopMoving),
+                                    "fire" => {
+                                        let (move_x, move_y) = try!(decompose_moves(&data));
+                                        Ok(Message::Fire {
+                                            move_x: move_x,
+                                            move_y: move_y,
+                                        })
+                                    }
+                                    msg_type => Err(MessageError::BadType(format!(r#"Expected any of {:?}, got: {:?}"#,
+                                                                          vec!["welcome", "go_away", "player_joined", "player_left",
+                                                                               "shots_fired", "player_spawned", "player_destroyed", "player_moving",
+                                                                               "player_stopped", "world_state", "start_moving", "stop_moving", "fire"],
+                                                                          msg_type))),
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            None => Err(MessageError::BadType("Top-level JSON not an Object".to_string())),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum MessageError {
+    JsonError(serde_json::Error),
+    PropertyMissing(String),
+    ExtraneousProperty(String),
+    BadType(String),
+}
+
+impl From<serde_json::Error> for MessageError {
+    fn from(sje: serde_json::Error) -> Self {
+        MessageError::JsonError(sje)
+    }
+}
+
 fn add_data_id_speeds_entries(data: &mut BTreeMap<String, serde_json::Value>,
                               id: u32,
                               speed: f32,
@@ -291,10 +460,17 @@ fn add_data_id_pos_moves_entries(data: &mut BTreeMap<String, serde_json::Value>,
                                  y: f32,
                                  move_x: f32,
                                  move_y: f32) {
+    add_data_id_pos_entries(data, id, x, y);
+    add_data_move_entries(data, move_x, move_y);
+}
+
+fn add_data_id_pos_entries(data: &mut BTreeMap<String, serde_json::Value>,
+                           id: u32,
+                           x: f32,
+                           y: f32) {
     add_data_entry(data, "id", &id);
     add_data_entry(data, "x", &x);
     add_data_entry(data, "y", &y);
-    add_data_move_entries(data, move_x, move_y);
 }
 
 fn add_data_move_entries(data: &mut BTreeMap<String, serde_json::Value>,
@@ -304,10 +480,163 @@ fn add_data_move_entries(data: &mut BTreeMap<String, serde_json::Value>,
     add_data_entry(data, "move_y", &move_y);
 }
 
+fn add_shot_data_entries(data: &mut BTreeMap<String, serde_json::Value>,
+                         id: u32,
+                         bullet_id: u32,
+                         x: f32,
+                         y: f32,
+                         aim_x: f32,
+                         aim_y: f32) {
+    add_data_entry(data, "id", &id);
+    add_data_entry(data, "bullet_id", &bullet_id);
+    add_data_entry(data, "x", &x);
+    add_data_entry(data, "y", &y);
+    add_data_entry(data, "aim_x", &aim_x);
+    add_data_entry(data, "aim_y", &aim_y);
+}
+
 fn add_data_entry<T: serde::Serialize>(data: &mut BTreeMap<String, serde_json::Value>,
                                        name: &str,
                                        what: &T) {
     let _ = data.insert(name.to_string(), serde_json::to_value(what));
+}
+
+fn decompose_moves(data: &BTreeMap<String, serde_json::Value>) -> Result<(f32, f32), MessageError> {
+    try!(decompose_assert_size(data.len(), 2));
+    try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(), vec!["move_x", "move_y"]));
+
+    Ok((try!(unpack_f32(data.get("move_x").unwrap())),
+        try!(unpack_f32(data.get("move_y").unwrap()))))
+}
+
+fn decompose_id_pos(data: &BTreeMap<String, serde_json::Value>)
+                    -> Result<(u32, f32, f32), MessageError> {
+    try!(decompose_assert_size(data.len(), 3));
+    try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(), vec!["id", "x", "y"]));
+
+    Ok((try!(unpack_u32(data.get("id").unwrap())),
+        try!(unpack_f32(data.get("x").unwrap())),
+        try!(unpack_f32(data.get("y").unwrap()))))
+}
+
+fn decompose_stats(data: &BTreeMap<String, serde_json::Value>)
+                   -> Result<(u32, f32, f32), MessageError> {
+    try!(decompose_assert_size(data.len(), 3));
+    try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(),
+                               vec!["fire_speed", "id", "speed"]));
+
+    Ok((try!(unpack_u32(data.get("id").unwrap())),
+        try!(unpack_f32(data.get("speed").unwrap())),
+        try!(unpack_f32(data.get("fire_speed").unwrap()))))
+}
+
+fn decompose_reason(data: &BTreeMap<String, serde_json::Value>) -> Result<String, MessageError> {
+    try!(decompose_assert_size(data.len(), 1));
+    try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(), vec!["reason"]));
+
+    Ok(try!(unpack_str(data.get("reason").unwrap())))
+}
+
+fn decompose_id(data: &BTreeMap<String, serde_json::Value>) -> Result<u32, MessageError> {
+    try!(decompose_assert_size(data.len(), 1));
+    try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(), vec!["id"]));
+
+    Ok(try!(unpack_u32(data.get("id").unwrap())))
+}
+
+fn decompose_shot(data: &BTreeMap<String, serde_json::Value>)
+                  -> Result<(u32, u32, f32, f32, f32, f32), MessageError> {
+    try!(decompose_assert_size(data.len(), 6));
+    try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(),
+                               vec!["aim_x", "aim_y", "bullet_id", "id", "x", "y"]));
+
+    Ok((try!(unpack_u32(data.get("id").unwrap())),
+        try!(unpack_u32(data.get("bullet_id").unwrap())),
+        try!(unpack_f32(data.get("x").unwrap())),
+        try!(unpack_f32(data.get("y").unwrap())),
+        try!(unpack_f32(data.get("aim_x").unwrap())),
+        try!(unpack_f32(data.get("aim_y").unwrap()))))
+}
+
+fn decompose_destruction(data: &BTreeMap<String, serde_json::Value>)
+                         -> Result<(u32, Option<u32>, Option<u32>), MessageError> {
+    match data.len() {
+        1 => Ok((try!(decompose_id(data)), None, None)),
+        3 => {
+            try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(),
+                                       vec!["bullet_id", "id", "killer_id"]));
+
+            Ok((try!(unpack_u32(data.get("id").unwrap())),
+                Some(try!(unpack_u32(data.get("killer_id").unwrap()))),
+                Some(try!(unpack_u32(data.get("bullet_id").unwrap())))))
+        }
+        len => {
+            if len > 3 {
+                Err(MessageError::ExtraneousProperty(format!(r#"Expected 1 or 3, got {}"#, len)))
+            } else {
+                Err(MessageError::PropertyMissing(format!(r#"Expected 1 or 3, got {}"#, len)))
+            }
+        }
+    }
+}
+
+fn decompose_id_pos_moves(data: &BTreeMap<String, serde_json::Value>)
+                          -> Result<(u32, f32, f32, f32, f32), MessageError> {
+    try!(decompose_assert_size(data.len(), 5));
+    try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(),
+                               vec!["aim_x", "aim_y", "id", "x", "y"]));
+
+    Ok((try!(unpack_u32(data.get("id").unwrap())),
+        try!(unpack_f32(data.get("x").unwrap())),
+        try!(unpack_f32(data.get("y").unwrap())),
+        try!(unpack_f32(data.get("aim_x").unwrap())),
+        try!(unpack_f32(data.get("aim_y").unwrap()))))
+}
+
+fn decompose_assert_size(len: usize, expected: usize) -> Result<(), MessageError> {
+    if len > expected {
+        return Err(MessageError::ExtraneousProperty(format!(r#"Expected {}, got {}"#,
+                                                            expected,
+                                                            len)));
+    } else if len < expected {
+        return Err(MessageError::PropertyMissing(format!(r#"Expected {}, got {}"#, expected, len)));
+    } else {
+        Ok(())
+    }
+}
+
+fn decompose_assert_keys(keys: Vec<&String>,
+                         expected: Vec<&'static str>)
+                         -> Result<(), MessageError> {
+    if keys != expected {
+        return Err(MessageError::ExtraneousProperty(format!(r#"Data Object is a mismatch for {:?}: {:?}"#, expected, keys)));
+    } else {
+        Ok(())
+    }
+}
+
+fn unpack_f32(val: &serde_json::Value) -> Result<f32, MessageError> {
+    match val {
+        &serde_json::Value::F64(f) => Ok(f as f32),
+        &serde_json::Value::I64(i) => Ok(i as f32),
+        &serde_json::Value::U64(u) => Ok(u as f32),
+        _ => Err(MessageError::BadType("Expected f32-compatible type".to_string())),
+    }
+}
+
+fn unpack_u32(val: &serde_json::Value) -> Result<u32, MessageError> {
+    match val {
+        &serde_json::Value::I64(i) => Ok(i as u32),
+        &serde_json::Value::U64(u) => Ok(u as u32),
+        _ => Err(MessageError::BadType("Expected u32-compatible type".to_string())),
+    }
+}
+
+fn unpack_str(val: &serde_json::Value) -> Result<String, MessageError> {
+    match val {
+        &serde_json::Value::String(ref s) => Ok(s.clone()),
+        _ => Err(MessageError::BadType("Expected String".to_string())),
+    }
 }
 
 
@@ -426,13 +755,19 @@ mod tests {
     fn shots_fired_serializes_properly() {
         let mut rng = thread_rng();
         let id: u32 = rng.gen();
-        let speed = gen_f32(&mut rng);
-        let fire_speed = gen_f32(&mut rng);
+        let bullet_id: u32 = rng.gen();
+        let x = gen_f32(&mut rng);
+        let y = gen_f32(&mut rng);
+        let aim_x = gen_f32(&mut rng);
+        let aim_y = gen_f32(&mut rng);
 
         let json_txt = Message::ShotsFired {
                            id: id,
-                           speed: speed,
-                           fire_speed: fire_speed,
+                           bullet_id: bullet_id,
+                           x: x,
+                           y: y,
+                           aim_x: aim_x,
+                           aim_y: aim_y,
                        }
                        .to_string();
 
@@ -441,8 +776,11 @@ mod tests {
             ("data".to_string(), Value::Object(
                 BTreeMap::from_iter(vec![
                     ("id".to_string(), Value::U64(id as u64)),
-                    ("speed".to_string(), Value::F64(speed as f64)),
-                    ("fire_speed".to_string(), Value::F64(fire_speed as f64)),
+                    ("bullet_id".to_string(), Value::U64(bullet_id as u64)),
+                    ("x".to_string(), Value::F64(x as f64)),
+                    ("y".to_string(), Value::F64(y as f64)),
+                    ("aim_x".to_string(), Value::F64(aim_x as f64)),
+                    ("aim_y".to_string(), Value::F64(aim_y as f64)),
                 ]
             ))),
         ]));
@@ -457,15 +795,11 @@ mod tests {
         let id: u32 = rng.gen();
         let x = gen_f32(&mut rng);
         let y = gen_f32(&mut rng);
-        let move_x = gen_f32(&mut rng);
-        let move_y = gen_f32(&mut rng);
 
         let json_txt = Message::PlayerSpawned {
                            id: id,
                            x: x,
                            y: y,
-                           move_x: move_x,
-                           move_y: move_y,
                        }
                        .to_string();
 
@@ -476,8 +810,6 @@ mod tests {
                     ("id".to_string(), Value::U64(id as u64)),
                     ("x".to_string(), Value::F64(x as f64)),
                     ("y".to_string(), Value::F64(y as f64)),
-                    ("move_x".to_string(), Value::F64(move_x as f64)),
-                    ("move_y".to_string(), Value::F64(move_y as f64)),
                 ]
             ))),
         ]));
@@ -611,15 +943,11 @@ mod tests {
         let id: u32 = rng.gen();
         let x = gen_f32(&mut rng);
         let y = gen_f32(&mut rng);
-        let move_x = gen_f32(&mut rng);
-        let move_y = gen_f32(&mut rng);
 
         let json_txt = Message::PlayerStopped {
                            id: id,
                            x: x,
                            y: y,
-                           move_x: move_x,
-                           move_y: move_y,
                        }
                        .to_string();
 
@@ -630,8 +958,6 @@ mod tests {
                     ("id".to_string(), Value::U64(id as u64)),
                     ("x".to_string(), Value::F64(x as f64)),
                     ("y".to_string(), Value::F64(y as f64)),
-                    ("move_x".to_string(), Value::F64(move_x as f64)),
-                    ("move_y".to_string(), Value::F64(move_y as f64)),
                 ]
             ))),
         ]));
@@ -642,7 +968,7 @@ mod tests {
 
     #[test]
     fn world_state_serializes_properly() {
-        //TODO
+        // TODO
         println!("{}", Message::WorldState.to_string());
         assert!(true);
     }
