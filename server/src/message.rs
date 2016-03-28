@@ -50,6 +50,33 @@ use std::collections::BTreeMap;
 use serde;
 use serde_json;
 
+/// Representation of discrete messages used for communication with the client.
+///
+/// Refer to the module-level documentation for more.
+///
+/// # Examples
+///
+/// Serialising a message for sending to a client:
+///
+/// ```
+/// # let (id, x, y) = (0, 0, 0);
+/// let message = Message::PlayerSpawned{
+///     id: id,
+///     x: x,
+///     y: y,
+/// }
+/// let to_send = message.to_string();
+/// ```
+///
+/// Deserialising a message received from a client:
+///
+/// ```
+/// let msg_text = r#"{"type": "stop_moving"}"#.to_string();  // example
+/// match str::parse(&*&msg_text) {
+///     Ok(message: Message) => println!("Great! Message correct!"),
+///     Err(error) => println!("Message malformed: {:?}", error),
+/// }
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub enum Message {
     /// **welcome** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
