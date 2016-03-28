@@ -2,18 +2,15 @@
 //! Three definitions below: protocol in abstract terms, encoding of the messages (currently JSON) and transport/framing (currently TCP/WebSocket).
 //! Ping/pong and timeouts are handled in the transport, so there shouldn't be any messages doing that in the protocol.
 //!
-//! Version/feature negotiation can be added in the future if needed.
-//! Client and server is assumed to be always talking the same iteration of the protocol, and the behaviour is undefined otherwise.
-//!
 //! I'm including some data bits that aren't necessarily needed, but will make tuning the game logic easier
-//! (because we won't have to change the client as well as the server),
-//! this can go but it shouldn't be too much of an issue — all of those things will be constants to begin with.
+//! (because we won't have to change the client as well as the server), this can go but it shouldn't be too much of an issue —
+//!  all of those things will be constants to begin with.
 //!
-//! All speed/position values are in the same scale, but the scale is up to be determined. Could be pixels (and pixels/second for speed) for now.
+//! All speed/position values are in the same scale. Distance unit is the same as in HTML5 canvas, i.e. pixels. Time unit is a second.
+//! Player vehicles are assumed to be squares, and the size is the square's side. Player bullets are assumed to be circles,
+//! and the size is the circle's radius.
 //!
-//! I'm ignoring differences in viewport sizes, in future this should be addressed somehow so players with bigger screens don't get an advantage.
-//!
-//! I didn't include aiming updates, we can probably live without rendering other players' aim vectors.
+//! See [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2) for discussion.
 //!
 //!
 //! # Encoding (JSON)
@@ -43,6 +40,7 @@
 //! * contains unknown `type` value, or
 //! * contains extra fields, or
 //! * doesn't contain any required fields, or
+//! * contains values of types differing from the specification, or
 //! * doesn't decode properly (or violates JSON specification in any other way)
 //!
 //! All malformed messages MUST be rejected.
@@ -54,45 +52,44 @@ use serde_json;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Message {
-    /// **welcome** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **welcome** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
-    /// **welcome** — sent by the server to a client, after the client successfully connects (what that means is defined by the transport)
+    /// **welcome** — sent by the server to a client, after the client successfully connects (what that means is defined by the transport) —
+    ///               all data values apply to all players and are constant
     /// - `id` (u32) — server-assigned ID of the player, MUST NOT change during the connection
-    /// - `speed` (f32) — speed of movement of player's entity
-    /// - `fire_speed` (f32) — speed of movement of player's bullets
+    /// - `speed` (f32) — speed of movement of player ships
+    /// - `size` (f32) — size of the player vehicle
+    /// - `bullet_speed` (f32) — speed of movement of player bullets
+    /// - `bullet_size` (f32) — size of the player bullets
     Welcome {
         id: u32,
         speed: f32,
-        fire_speed: f32,
+        size: f32,
+        bullet_speed: f32,
+        bullet_size: f32,
     },
-    /// **go_away** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **go_away** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **go_away** — sent by the server if it rejects/terminates client connection for any reason
     /// - `reason` (str) — a message to be displayed to the user
     GoAway {
         reason: String,
     },
-    /// **player_joined** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **player_joined** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **player_joined** — sent by the server to all connected clients when a new player joins the game.
     /// - `id` (u32) — server-assigned ID of the player
-    /// - `speed` (f32) — speed of movement of player's entity
-    /// - `fire_speed` (f32) — speed of movement of player's bullets
-    ///                        (assumed to be constant throughout the game:
-    ///                         this can be moved to `shots_fired` if we decide to make switcheable weapons or something)
     PlayerJoined {
         id: u32,
-        speed: f32,
-        fire_speed: f32,
     },
-    /// **player_left** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **player_left** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **player_left** — sent by the server to all connected clients when a player disconnects
     /// - `id` (u32) — ID of the player that just left; server MAY recycle this ID, and client MUST be ready for that
     PlayerLeft {
         id: u32,
     },
-    /// **shots_fired** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **shots_fired** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **shots_fired** — sent by the server to all connected clients when a player fires a bullet
     ///                   (I'm giving bullets their own ID to make them easier to despawn but honestly not sure if that's the best of ideas)
@@ -101,7 +98,8 @@ pub enum Message {
     /// - `x` (f32) — position X of the player at the moment of firing (center)
     /// - `y` (f32) — position Y of the player at the moment of firing (center)
     /// - `aim_x` (f32) — player's aiming vector X at the moment of firing
-    /// - `aim_y` (f32) — player's aiming vector Y at the moment of firing (aiming vector MUST be normalised)
+    /// - `aim_y` (f32) — player's aiming direction vector Y at the moment of firing
+    ///                   (aiming direction vector MUST be normalised, i.e. its magnitude MUST be equal to 1)
     ShotsFired {
         id: u32,
         bullet_id: u32,
@@ -110,18 +108,18 @@ pub enum Message {
         aim_x: f32,
         aim_y: f32,
     },
-    /// **player_spawned** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **player_spawned** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **player_spawned** — sent by the server to all connected clients when a player (re)spawns on the map
     /// - `id` (u32) — ID of the player
-    /// - `x` (f32) — position X of the entity (center)
-    /// - `y` (f32) — position Y of the entity (center)
+    /// - `x` (f32) — position X of the player vehicle (center)
+    /// - `y` (f32) — position Y of the player vehicle (center)
     PlayerSpawned {
         id: u32,
         x: f32,
         y: f32,
     },
-    /// **player_destroyed** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **player_destroyed** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **player_destroyed** — sent by the server to all connected clients when a player despawns from the map
     /// - `id` (u32) — ID of the player
@@ -132,7 +130,7 @@ pub enum Message {
         killer_id: Option<u32>,
         bullet_id: Option<u32>,
     },
-    /// **player_moving** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **player_moving** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **player_moving** — sent by the server to all connected clients when a player starts moving
     /// - `id` (u32) — ID of the player
@@ -147,7 +145,7 @@ pub enum Message {
         move_x: f32,
         move_y: f32,
     },
-    /// **player_stopped** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **player_stopped** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **player_stopped** — sent by the server to all connected clients when a player stops moving
     /// - `id` (u32) — ID of the player
@@ -158,11 +156,9 @@ pub enum Message {
         x: f32,
         y: f32,
     },
-    /// **world_state** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **world_state** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
-    /// **world_state** — full update of the world
-    ///                   (bullets not included because their movement vector never changes so the client
-    ///                   should be able to render them perfectly without full update), sent by the server to all connected clients from time to time
+    /// **world_state** — full update of the world, sent by the server to all connected clients periodically (interval up to the implementation)
     /// - `player_count` (u32) — count of all connected players
     /// - `alive_players` (Player[]) — an array of all currently alive players, each containing:
     ///   - `id` (u32) — ID of the player
@@ -175,12 +171,13 @@ pub enum Message {
     ///   - `x` (f32) — current position X of the bullet
     ///   - `y` (f32) — current position Y of the bullet
     ///   - `move_x` (f32) — current movement vector X of the bullet
-    ///   - `move_y` (f32) — current movement vector Y of the bullet
-    /// (movement vectors MUST be normalised)
+    ///   - `move_y` (f32) — current movement direction vector Y of the bullet
+    ///                      (movement direction vectors MUST be normalised, i.e. their magnitude MUST be equal to 1)
     WorldState,
-    /// **start_moving** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **start_moving** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
-    /// **start_moving** — sent by the client to the server when the player wants to start moving (i.e. presses one or more movement keys)
+    /// **start_moving** — sent by the client to the server when the player wants to start moving or change its movement direction
+    ///                    (i.e. presses/releases one or more movement keys, as long as at least one of them is still held)
     /// - `move_x` (f32) — player's movement vector X
     /// - `move_y` (f32) — player's movement vector Y
     /// (movement vector SHOULD be normalised, but the server MUST NOT assume that it is)
@@ -188,16 +185,15 @@ pub enum Message {
         move_x: f32,
         move_y: f32,
     },
-    /// **stop_moving** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **stop_moving** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **stop_moving** — sent by the client to the server when the player wants to stop moving (i.e. releases held movement keys)
     StopMoving,
-    /// **fire** message, as defined by [#2](https://github.com/LoungeCPP/Tatsoryk/issues/2)
+    /// **fire** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **fire** — sent by the client to the server when the player wants to fire (i.e. presses the mouse button)
     /// - `move_x` (f32) — player's aiming vector X
-    /// - `move_y` (f32) — player's aiming vector Y
-    /// (aiming vector SHOULD be normalised, but the server MUST NOT assume that it is)
+    /// - `move_y` (f32) — player's aiming direction vector Y (aiming direction vector SHOULD be normalised, but the server MUST NOT assume that it is)
     Fire {
         move_x: f32,
         move_y: f32,
@@ -208,16 +204,21 @@ impl ToString for Message {
     fn to_string(&self) -> String {
         let mut values = BTreeMap::new();
         let msg_type = match self {
-            &Message::Welcome{id, speed, fire_speed} => {
-                add_data_id_speeds_entries(&mut values, id, speed, fire_speed);
+            &Message::Welcome{id, speed, size, bullet_speed, bullet_size} => {
+                add_data_id_speeds_sizes_entries(&mut values,
+                                                 id,
+                                                 speed,
+                                                 size,
+                                                 bullet_speed,
+                                                 bullet_size);
                 "welcome"
             }
             &Message::GoAway{ref reason} => {
                 add_data_entry(&mut values, "reason", &reason);
                 "go_away"
             }
-            &Message::PlayerJoined{id, speed, fire_speed} => {
-                add_data_id_speeds_entries(&mut values, id, speed, fire_speed);
+            &Message::PlayerJoined{id} => {
+                add_data_entry(&mut values, "id", &id);
                 "player_joined"
             }
             &Message::PlayerLeft{id} => {
@@ -328,11 +329,14 @@ impl FromStr for Message {
 
                                 match &msg_type[..] {
                                     "welcome" => {
-                                        let (id, speed, fire_speed) = try!(decompose_stats(&data));
+                                        let (id, speed, size, bullet_speed, bullet_size) =
+                                            try!(decompose_stats(&data));
                                         Ok(Message::Welcome {
                                             id: id,
                                             speed: speed,
-                                            fire_speed: fire_speed,
+                                            size: size,
+                                            bullet_speed: bullet_speed,
+                                            bullet_size: bullet_size,
                                         })
                                     }
                                     "go_away" => {
@@ -341,12 +345,7 @@ impl FromStr for Message {
                                         })
                                     }
                                     "player_joined" => {
-                                        let (id, speed, fire_speed) = try!(decompose_stats(&data));
-                                        Ok(Message::PlayerJoined {
-                                            id: id,
-                                            speed: speed,
-                                            fire_speed: fire_speed,
-                                        })
+                                        Ok(Message::PlayerJoined { id: try!(decompose_id(&data)) })
                                     }
                                     "player_left" => {
                                         Ok(Message::PlayerLeft { id: try!(decompose_id(&data)) })
@@ -445,13 +444,17 @@ impl From<serde_json::Error> for MessageError {
     }
 }
 
-fn add_data_id_speeds_entries(data: &mut BTreeMap<String, serde_json::Value>,
-                              id: u32,
-                              speed: f32,
-                              fire_speed: f32) {
+fn add_data_id_speeds_sizes_entries(data: &mut BTreeMap<String, serde_json::Value>,
+                                    id: u32,
+                                    speed: f32,
+                                    size: f32,
+                                    bullet_speed: f32,
+                                    bullet_size: f32) {
     add_data_entry(data, "id", &id);
     add_data_entry(data, "speed", &speed);
-    add_data_entry(data, "fire_speed", &fire_speed);
+    add_data_entry(data, "size", &size);
+    add_data_entry(data, "bullet_speed", &bullet_speed);
+    add_data_entry(data, "bullet_size", &bullet_size);
 }
 
 fn add_data_id_pos_moves_entries(data: &mut BTreeMap<String, serde_json::Value>,
@@ -520,14 +523,16 @@ fn decompose_id_pos(data: &BTreeMap<String, serde_json::Value>)
 }
 
 fn decompose_stats(data: &BTreeMap<String, serde_json::Value>)
-                   -> Result<(u32, f32, f32), MessageError> {
-    try!(decompose_assert_size(data.len(), 3));
+                   -> Result<(u32, f32, f32, f32, f32), MessageError> {
+    try!(decompose_assert_size(data.len(), 5));
     try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(),
-                               vec!["fire_speed", "id", "speed"]));
+                               vec!["bullet_size", "bullet_speed", "id", "size", "speed"]));
 
     Ok((try!(unpack_u32(data.get("id").unwrap())),
         try!(unpack_f32(data.get("speed").unwrap())),
-        try!(unpack_f32(data.get("fire_speed").unwrap()))))
+        try!(unpack_f32(data.get("size").unwrap())),
+        try!(unpack_f32(data.get("bullet_speed").unwrap())),
+        try!(unpack_f32(data.get("bullet_size").unwrap()))))
 }
 
 fn decompose_reason(data: &BTreeMap<String, serde_json::Value>) -> Result<String, MessageError> {
@@ -655,12 +660,16 @@ mod tests {
         let mut rng = thread_rng();
         let id: u32 = rng.gen();
         let speed = gen_f32(&mut rng);
-        let fire_speed = gen_f32(&mut rng);
+        let size = gen_f32(&mut rng);
+        let bullet_speed = gen_f32(&mut rng);
+        let bullet_size = gen_f32(&mut rng);
 
         let json_txt = Message::Welcome {
                            id: id,
                            speed: speed,
-                           fire_speed: fire_speed,
+                           size: size,
+                           bullet_speed: bullet_speed,
+                           bullet_size: bullet_size,
                        }
                        .to_string();
 
@@ -670,7 +679,9 @@ mod tests {
                 BTreeMap::from_iter(vec![
                     ("id".to_string(), Value::U64(id as u64)),
                     ("speed".to_string(), Value::F64(speed as f64)),
-                    ("fire_speed".to_string(), Value::F64(fire_speed as f64)),
+                    ("size".to_string(), Value::F64(size as f64)),
+                    ("bullet_speed".to_string(), Value::F64(bullet_speed as f64)),
+                    ("bullet_size".to_string(), Value::F64(bullet_size as f64)),
                 ]
             ))),
         ]));
@@ -706,23 +717,14 @@ mod tests {
     fn player_joined_serializes_properly() {
         let mut rng = thread_rng();
         let id: u32 = rng.gen();
-        let speed = gen_f32(&mut rng);
-        let fire_speed = gen_f32(&mut rng);
 
-        let json_txt = Message::PlayerJoined {
-                           id: id,
-                           speed: speed,
-                           fire_speed: fire_speed,
-                       }
-                       .to_string();
+        let json_txt = Message::PlayerJoined { id: id }.to_string();
 
         let expected_json = Value::Object(BTreeMap::from_iter(vec![
             ("type".to_string(), Value::String("player_joined".to_string())),
             ("data".to_string(), Value::Object(
                 BTreeMap::from_iter(vec![
                     ("id".to_string(), Value::U64(id as u64)),
-                    ("speed".to_string(), Value::F64(speed as f64)),
-                    ("fire_speed".to_string(), Value::F64(fire_speed as f64)),
                 ]
             ))),
         ]));
