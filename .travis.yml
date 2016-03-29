@@ -20,16 +20,17 @@ matrix:
                       - r-packages-precise
                       - llvm-toolchain-precise
                       - ubuntu-toolchain-r-test
-        - language: python
-          python: "3.5"
-          env: CXX=clang++-3.8 CC=clang-3.8
-          addons:
-              apt:
-                  packages:
-                      - clang-3.8
-                      - libicu-dev
-                      - ninja-build
-                  sources: *sources
+# This was failing builds (see for example https://travis-ci.org/LoungeCPP/Tatsoryk/jobs/119365368)
+#        - language: python
+#          python: "3.5"
+#          env: CXX=clang++-3.8 CC=clang-3.8
+#          addons:
+#              apt:
+#                  packages:
+#                      - clang-3.8
+#                      - libicu-dev
+#                      - ninja-build
+#                  sources: *sources
 
 install:
     - if [ -n "$CXX" ]; then
