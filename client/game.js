@@ -13,6 +13,8 @@
     var lastTime = null;
     var keyboard = null;
 
+    var entities = null;
+
     //
     // Input handling
     //
@@ -23,8 +25,15 @@
     var INPUT_MOVE_RIGHT = 3;
     var INPUT_FIRE       = 4;
 
-    var onKeyInput = function(input) {
+    var onKeyDown = function(event) {
+        var message = {type: 'keydown', key: event.code};
+        socket.send(JSON.stringify(message));
     };
+
+    var onKeyUp = function(event) {
+        var message = {type: 'keyup', key: event.code};
+        socket.send(JSON.stringify(message));
+    }
 
     var onMouseInput = function(input, x, y) {
     };
@@ -52,32 +61,26 @@
         unbindInput();
     };
 
-    var update = function(timeDelta) {
-        // TODO
-    };
-
     //
     // Rendering
     //
 
-    var draw = function(context, width, height, timeDelta) {
-        // TODO drawing
+    var draw = function(context, width, height) {
+        if (entities != null) {
+            for (var i = 0; i < entities.length; i++) {
+                var entity = entities[i];
+
+                context.fillStyle = 'black';
+                context.fillRect(entity.x, entity.y, 10, 10);
+            }
+        }
     };
 
     var frame = function(time) {
-        if (lastTime === null) {
-            lastTime = time;
-        }
-
-        var delta = time - lastTime;
-        lastTime = time;
-
-        update(delta);
-
         var context = canvas.getContext('2d');
         context.save();
         context.clearRect(0, 0, canvas.width, canvas.height);
-        draw(context, canvas.width, canvas.height, delta);
+        draw(context, canvas.width, canvas.height);
         context.restore();
 
         window.requestAnimationFrame(frame);
@@ -89,6 +92,7 @@
 
     var handleMessage = function(msg) {
         // TODO do stuff~
+        entities = msg.entities;
     };
 
     var sendMessage = function(msg) {
@@ -108,7 +112,7 @@
 
         socket.onmessage = function(e) {
             var message = JSON.parse(e.data);
-            handleMessage(msg);
+            handleMessage(message);
         };
 
         socket.onerror = socket.onclose = function() {
@@ -150,6 +154,9 @@
 
         document.getElementById('connect').addEventListener('click', onConnectClick);
         document.getElementById('disconnect').addEventListener('click', onDisconnectClick);
+
+        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keyup', onKeyUp);
 
         // TODO maybe figure out godo way to fill available viewport
 
