@@ -3,12 +3,13 @@ extern crate rand;
 use std::iter::FromIterator;
 use std::collections::BTreeMap;
 use self::rand::Rng;
+use self::super::{Player, Bullet};
 use serde_json::Value;
 
 mod ser {
     use self::super::*;
     use self::super::rand::{Rng, thread_rng};
-    use self::super::super::Message;
+    use self::super::super::*;
     use serde_json::{self, Value};
 
     #[test]
@@ -218,9 +219,27 @@ mod ser {
 
     #[test]
     fn world_state_serializes_properly() {
-        // TODO implement WorldState
-        assert_eq!(serde_json::from_str::<Value>(&Message::WorldState.to_string()).unwrap(),
-                   world_state_expected_json());
+        let mut rng = thread_rng();
+        let player_count: u32 = rng.gen_range(1, 100);
+        let alive_players = gen_bullets_or_players(&mut rng,
+                                                   Player::moving,
+                                                   Player::not_moving,
+                                                   player_count);
+        let alive_bullets = {
+            let bullet_count = rng.gen_range(player_count, player_count * 3);
+            gen_bullets_or_players(&mut rng, Bullet::moving, Bullet::not_moving, bullet_count)
+        };
+
+        let expected_json = world_state_expected_json(player_count, &alive_players, &alive_bullets);
+        let json_txt = Message::WorldState {
+                           player_count: player_count,
+                           alive_players: alive_players,
+                           alive_bullets: alive_bullets,
+                       }
+                       .to_string();
+
+        assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
+                   expected_json);
     }
 
     #[test]
@@ -268,7 +287,7 @@ mod de {
     mod correct {
         use self::super::super::*;
         use self::super::super::rand::{Rng, thread_rng};
-        use self::super::super::super::Message;
+        use self::super::super::super::*;
         use serde_json;
 
         #[test]
@@ -460,10 +479,29 @@ mod de {
 
         #[test]
         fn world_state_deserializes_properly() {
-            assert_eq!(str::parse::<Message>(&serde_json::to_string(&world_state_expected_json())
-                                                  .unwrap())
+            let mut rng = thread_rng();
+            let player_count: u32 = rng.gen_range(1, 100);
+            let alive_players = gen_bullets_or_players(&mut rng,
+                                                       Player::moving,
+                                                       Player::not_moving,
+                                                       player_count);
+            let alive_bullets = {
+                let bullet_count = rng.gen_range(player_count, player_count * 3);
+                gen_bullets_or_players(&mut rng, Bullet::moving, Bullet::not_moving, bullet_count)
+            };
+
+            let expected_json = world_state_expected_json(player_count,
+                                                          &alive_players,
+                                                          &alive_bullets);
+            let expected_message = Message::WorldState {
+                player_count: player_count,
+                alive_players: alive_players,
+                alive_bullets: alive_bullets,
+            };
+
+            assert_eq!(str::parse::<Message>(&serde_json::to_string(&expected_json).unwrap())
                            .unwrap(),
-                       Message::WorldState);
+                       expected_message);
         }
 
         #[test]
@@ -643,28 +681,28 @@ pub fn welcome_expected_json(id: u32,
                              bullet_size: f32)
                              -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String("welcome".to_string())),
-            ("data".to_string(), Value::Object(
-                BTreeMap::from_iter(vec![
-                    ("id".to_string(), Value::U64(id as u64)),
-                    ("speed".to_string(), Value::F64(speed as f64)),
-                    ("size".to_string(), Value::F64(size as f64)),
-                    ("bullet_speed".to_string(), Value::F64(bullet_speed as f64)),
-                    ("bullet_size".to_string(), Value::F64(bullet_size as f64)),
-                ]
-            ))),
-        ]))
+        ("type".to_string(), Value::String("welcome".to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("id".to_string(), Value::U64(id as u64)),
+                ("speed".to_string(), Value::F64(speed as f64)),
+                ("size".to_string(), Value::F64(size as f64)),
+                ("bullet_speed".to_string(), Value::F64(bullet_speed as f64)),
+                ("bullet_size".to_string(), Value::F64(bullet_size as f64)),
+            ]
+        ))),
+    ]))
 }
 
 pub fn go_away_expected_json(reason: String) -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String("go_away".to_string())),
-            ("data".to_string(), Value::Object(
-                BTreeMap::from_iter(vec![
-                    ("reason".to_string(), Value::String(reason)),
-                ]
-            ))),
-        ]))
+        ("type".to_string(), Value::String("go_away".to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("reason".to_string(), Value::String(reason)),
+            ]
+        ))),
+    ]))
 }
 
 pub fn player_joined_expected_json(id: u32) -> Value {
@@ -683,18 +721,18 @@ pub fn shots_fired_expected_json(id: u32,
                                  aim_y: f32)
                                  -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String("shots_fired".to_string())),
-            ("data".to_string(), Value::Object(
-                BTreeMap::from_iter(vec![
-                    ("id".to_string(), Value::U64(id as u64)),
-                    ("bullet_id".to_string(), Value::U64(bullet_id as u64)),
-                    ("x".to_string(), Value::F64(x as f64)),
-                    ("y".to_string(), Value::F64(y as f64)),
-                    ("aim_x".to_string(), Value::F64(aim_x as f64)),
-                    ("aim_y".to_string(), Value::F64(aim_y as f64)),
-                ]
-            ))),
-        ]))
+        ("type".to_string(), Value::String("shots_fired".to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("id".to_string(), Value::U64(id as u64)),
+                ("bullet_id".to_string(), Value::U64(bullet_id as u64)),
+                ("x".to_string(), Value::F64(x as f64)),
+                ("y".to_string(), Value::F64(y as f64)),
+                ("aim_x".to_string(), Value::F64(aim_x as f64)),
+                ("aim_y".to_string(), Value::F64(aim_y as f64)),
+            ]
+        ))),
+    ]))
 }
 
 pub fn player_spawned_expected_json(id: u32, x: f32, y: f32) -> Value {
@@ -703,13 +741,13 @@ pub fn player_spawned_expected_json(id: u32, x: f32, y: f32) -> Value {
 
 pub fn player_destroyed_no_killer_expected_json(id: u32) -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String("player_destroyed".to_string())),
-            ("data".to_string(), Value::Object(
-                BTreeMap::from_iter(vec![
-                    ("id".to_string(), Value::U64(id as u64)),
-                ]
-            ))),
-        ]))
+        ("type".to_string(), Value::String("player_destroyed".to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("id".to_string(), Value::U64(id as u64)),
+            ]
+        ))),
+    ]))
 }
 
 pub fn player_destroyed_with_killer_expected_json(id: u32,
@@ -717,41 +755,50 @@ pub fn player_destroyed_with_killer_expected_json(id: u32,
                                                   bullet_id: u32)
                                                   -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String("player_destroyed".to_string())),
-            ("data".to_string(), Value::Object(
-                BTreeMap::from_iter(vec![
-                    ("id".to_string(), Value::U64(id as u64)),
-                    ("killer_id".to_string(), Value::U64(killer_id as u64)),
-                    ("bullet_id".to_string(), Value::U64(bullet_id as u64)),
-                ]
-            ))),
-        ]))
+        ("type".to_string(), Value::String("player_destroyed".to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("id".to_string(), Value::U64(id as u64)),
+                ("killer_id".to_string(), Value::U64(killer_id as u64)),
+                ("bullet_id".to_string(), Value::U64(bullet_id as u64)),
+            ]
+        ))),
+    ]))
 }
 
 pub fn player_moving_expected_json(id: u32, x: f32, y: f32, move_x: f32, move_y: f32) -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String("player_moving".to_string())),
-            ("data".to_string(), Value::Object(
-                BTreeMap::from_iter(vec![
-                    ("id".to_string(), Value::U64(id as u64)),
-                    ("x".to_string(), Value::F64(x as f64)),
-                    ("y".to_string(), Value::F64(y as f64)),
-                    ("move_x".to_string(), Value::F64(move_x as f64)),
-                    ("move_y".to_string(), Value::F64(move_y as f64)),
-                ]
-            ))),
-        ]))
+        ("type".to_string(), Value::String("player_moving".to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("id".to_string(), Value::U64(id as u64)),
+                ("x".to_string(), Value::F64(x as f64)),
+                ("y".to_string(), Value::F64(y as f64)),
+                ("move_x".to_string(), Value::F64(move_x as f64)),
+                ("move_y".to_string(), Value::F64(move_y as f64)),
+            ]
+        ))),
+    ]))
 }
 
 pub fn player_stopped_expected_json(id: u32, x: f32, y: f32) -> Value {
     id_pos_expected_json(id, x, y, "player_stopped")
 }
 
-pub fn world_state_expected_json() -> Value {
-    // TODO implement world_state
+pub fn world_state_expected_json(player_count: u32,
+                                 alive_players: &Vec<Player>,
+                                 alive_bullets: &Vec<Bullet>)
+                                 -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String("world_state".to_string())),
-        ]))
+        ("type".to_string(), Value::String("world_state".to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("player_count".to_string(), Value::U64(player_count as u64)),
+                ("alive_players".to_string(), Value::Array(alive_players.iter().map(Player::to_json).collect::<Vec<_>>())),
+                ("alive_bullets".to_string(), Value::Array(alive_bullets.iter().map(Bullet::to_json).collect::<Vec<_>>())),
+            ]
+        ))),
+    ]))
 }
 
 pub fn start_moving_expected_json(move_x: f32, move_y: f32) -> Value {
@@ -760,8 +807,8 @@ pub fn start_moving_expected_json(move_x: f32, move_y: f32) -> Value {
 
 pub fn stop_moving_expected_json() -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String("stop_moving".to_string())),
-        ]))
+        ("type".to_string(), Value::String("stop_moving".to_string())),
+    ]))
 }
 
 pub fn fire_expected_json(move_x: f32, move_y: f32) -> Value {
@@ -770,40 +817,66 @@ pub fn fire_expected_json(move_x: f32, move_y: f32) -> Value {
 
 fn id_only_expected_json(id: u32, msg_type: &str) -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String(msg_type.to_string())),
-            ("data".to_string(), Value::Object(
-                BTreeMap::from_iter(vec![
-                    ("id".to_string(), Value::U64(id as u64)),
-                ]
-            ))),
-        ]))
+        ("type".to_string(), Value::String(msg_type.to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("id".to_string(), Value::U64(id as u64)),
+            ]
+        ))),
+    ]))
 }
 
 fn id_pos_expected_json(id: u32, x: f32, y: f32, msg_type: &str) -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String(msg_type.to_string())),
-            ("data".to_string(), Value::Object(
-                BTreeMap::from_iter(vec![
-                    ("id".to_string(), Value::U64(id as u64)),
-                    ("x".to_string(), Value::F64(x as f64)),
-                    ("y".to_string(), Value::F64(y as f64)),
-                ]
-            ))),
-        ]))
+        ("type".to_string(), Value::String(msg_type.to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("id".to_string(), Value::U64(id as u64)),
+                ("x".to_string(), Value::F64(x as f64)),
+                ("y".to_string(), Value::F64(y as f64)),
+            ]
+        ))),
+    ]))
 }
 
 fn movement_expected_json(move_x: f32, move_y: f32, msg_type: &str) -> Value {
     Value::Object(BTreeMap::from_iter(vec![
-            ("type".to_string(), Value::String(msg_type.to_string())),
-            ("data".to_string(), Value::Object(
-                BTreeMap::from_iter(vec![
-                    ("move_x".to_string(), Value::F64(move_x as f64)),
-                    ("move_y".to_string(), Value::F64(move_y as f64)),
-                ]
-            ))),
-        ]))
+        ("type".to_string(), Value::String(msg_type.to_string())),
+        ("data".to_string(), Value::Object(
+            BTreeMap::from_iter(vec![
+                ("move_x".to_string(), Value::F64(move_x as f64)),
+                ("move_y".to_string(), Value::F64(move_y as f64)),
+            ]
+        ))),
+    ]))
 }
 
+pub fn gen_bullets_or_players<T, Fm, Fs, R>(mut rng: &mut R,
+                                            mut fm: Fm,
+                                            mut fs: Fs,
+                                            upper_range: u32)
+                                            -> Vec<T>
+    where Fm: FnMut(u32, f32, f32, f32, f32) -> T,
+          Fs: FnMut(u32, f32, f32) -> T,
+          R: Rng
+{
+    (1..upper_range)
+        .map(|_| {
+            let id: u32 = rng.gen();
+            let x = gen_f32(&mut rng);
+            let y = gen_f32(&mut rng);
+
+            if rng.gen() {
+                let move_x = gen_f32(&mut rng);
+                let move_y = gen_f32(&mut rng);
+
+                fm(id, x, y, move_x, move_y)
+            } else {
+                fs(id, x, y)
+            }
+        })
+        .collect::<Vec<_>>()
+}
 
 pub fn gen_f32<R: Rng>(rng: &mut R) -> f32 {
     // Randoming actual floats hits us when widening them to f64

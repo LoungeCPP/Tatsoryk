@@ -209,7 +209,11 @@ pub enum Message {
     ///   - `move_x` (f32) — current movement vector X of the bullet
     ///   - `move_y` (f32) — current movement direction vector Y of the bullet
     ///                      (movement direction vectors MUST be normalised, i.e. their magnitude MUST be equal to 1)
-    WorldState,
+    WorldState {
+        player_count: u32,
+        alive_players: Vec<Player>,
+        alive_bullets: Vec<Bullet>,
+    },
     /// **start_moving** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec)
     ///
     /// **start_moving** — sent by the client to the server when the player wants to start moving or change its movement direction
@@ -289,7 +293,16 @@ impl ToString for Message {
                 add_data_id_pos_entries(&mut values, id, x, y);
                 "player_stopped"
             }
-            &Message::WorldState => "world_state",  //TODO
+            &Message::WorldState{player_count, ref alive_players, ref alive_bullets} => {
+                add_data_entry(&mut values, "player_count", &player_count);
+                add_data_entry(&mut values,
+                               "alive_players",
+                               &alive_players.iter().map(|ref p| p.to_json()).collect::<Vec<_>>());
+                add_data_entry(&mut values,
+                               "alive_bullets",
+                               &alive_bullets.iter().map(|ref b| b.to_json()).collect::<Vec<_>>());
+                "world_state"
+            }
             &Message::StartMoving{move_x, move_y} => {
                 add_data_move_entries(&mut values, move_x, move_y);
                 "start_moving"
@@ -332,8 +345,7 @@ impl FromStr for Message {
                 });
 
                 let keys = msg.keys().collect::<Vec<_>>();
-                // TODO: implement world_state
-                if msg_type == "stop_moving" || msg_type == "world_state" {
+                if msg_type == "stop_moving" {
                     if keys != vec!["data", "type"] && keys != vec!["type"] {
                         return Err(MessageError::PropertyMissing(format!(r#"Top-level Object is a mismatch for `{{"type"[, "data"]}}`: {:?}"#, keys)));
                     }
@@ -345,9 +357,6 @@ impl FromStr for Message {
                     None => {
                         if msg_type == "stop_moving" {
                             Ok(Message::StopMoving)
-                        } else if msg_type == "world_state" {
-                            // TODO: implement WorldState
-                            Ok(Message::WorldState)
                         } else {
                             Err(MessageError::PropertyMissing(r#"Top-level Object doesn't have "data""#.to_string()))
                         }
@@ -359,9 +368,7 @@ impl FromStr for Message {
                                                               .to_string()))
                             }
                             Some(data) => {
-                                // TODO: implement WorldState
-                                if (msg_type == "stop_moving" || msg_type == "world_state") &&
-                                   !data.is_empty() {
+                                if msg_type == "stop_moving" && !data.is_empty() {
                                     return Err(MessageError::ExtraneousProperty(r#"Non-empty "data" for dataless message"#.to_string()));
                                 }
 
@@ -436,7 +443,15 @@ impl FromStr for Message {
                                             y: y,
                                         })
                                     }
-                                    "world_state" => Ok(Message::WorldState), // TODO
+                                    "world_state" => {
+                                        let (player_count, alive_players, alive_bullets) =
+                                            try!(decompose_world_state(&data));
+                                        Ok(Message::WorldState {
+                                            player_count: player_count,
+                                            alive_players: alive_players,
+                                            alive_bullets: alive_bullets,
+                                        })
+                                    }
                                     "start_moving" => {
                                         let (move_x, move_y) = try!(decompose_moves(&data));
                                         Ok(Message::StartMoving {
@@ -609,6 +624,26 @@ fn decompose_destruction(data: &BTreeMap<String, serde_json::Value>)
     }
 }
 
+fn decompose_world_state(data: &BTreeMap<String, serde_json::Value>)
+                         -> Result<(u32, Vec<Player>, Vec<Bullet>), MessageError> {
+    try!(decompose_assert_size(data.len(), 3));
+    try!(decompose_assert_keys(data.keys().collect::<Vec<_>>(),
+                               vec!["alive_bullets", "alive_players", "player_count"]));
+
+    let alive_players = try!(unpack_from_jsonnable(try!(unpack_arr(data.get("alive_players")
+                                                                       .unwrap())),
+                                                   Player::from_json,
+                                                   Player::not_moving(0, 0f32, 0f32)));
+    let alive_bullets = try!(unpack_from_jsonnable(try!(unpack_arr(data.get("alive_bullets")
+                                                                       .unwrap())),
+                                                   Bullet::from_json,
+                                                   Bullet::not_moving(0, 0f32, 0f32)));
+
+    Ok((try!(unpack_u32(data.get("player_count").unwrap())),
+        alive_players,
+        alive_bullets))
+}
+
 fn decompose_id_pos_moves(data: &BTreeMap<String, serde_json::Value>)
                           -> Result<(u32, f32, f32, f32, f32), MessageError> {
     try!(decompose_assert_size(data.len(), 5));
@@ -666,4 +701,38 @@ fn unpack_str(val: &serde_json::Value) -> Result<String, MessageError> {
         &serde_json::Value::String(ref s) => Ok(s.clone()),
         _ => Err(MessageError::BadType("Expected String".to_string())),
     }
+}
+
+fn unpack_arr<'v>(val: &'v serde_json::Value) -> Result<&'v Vec<serde_json::Value>, MessageError> {
+    match val {
+        &serde_json::Value::Array(ref s) => Ok(s),
+        _ => Err(MessageError::BadType("Expected Array".to_string())),
+    }
+}
+
+fn unpack_from_jsonnable<T: Copy, F: Fn(&serde_json::Value) -> Result<T, MessageError>>
+    (vals: &Vec<serde_json::Value>,
+     from_json: F,
+     placeholder: T)
+     -> Result<Vec<T>, MessageError> {
+    let mut err: Option<MessageError> = None;
+    let alive_players = vals.iter()
+                            .map(|ast| {
+                                if err.is_none() {
+                                    match from_json(ast) {
+                                        Err(error) => {
+                                            err = Some(error);
+                                            Ok(placeholder)
+                                        }
+                                        ok => ok,
+                                    }
+                                } else {
+                                    Ok(placeholder)
+                                }
+                            })
+                            .collect::<Vec<_>>();
+    if let Some(err) = err {
+        return Err(err);
+    }
+    Ok(alive_players.into_iter().map(Result::unwrap).collect::<Vec<_>>())
 }

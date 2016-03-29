@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use std::collections::BTreeMap;
 use self::super::MessageError;
 use serde_json;
@@ -120,7 +119,7 @@ mod tests {
     use std::iter::FromIterator;
     use std::collections::BTreeMap;
     use self::rand::{thread_rng, Rng};
-    use serde_json::{self, Value};
+    use serde_json::Value;
     use self::super::Player;
     use self::super::super::MessageError;
 
@@ -168,7 +167,8 @@ mod tests {
         let move_x = gen_f32(&mut rng);
         let move_y = gen_f32(&mut rng);
 
-        assert_eq!(Player::from_json(&moving_player_expected_json(id, x, y, move_x, move_y)).unwrap(),
+        assert_eq!(Player::from_json(&moving_player_expected_json(id, x, y, move_x, move_y))
+                       .unwrap(),
                    Player::moving(id, x, y, move_x, move_y));
     }
 
