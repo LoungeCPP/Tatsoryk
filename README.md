@@ -3,6 +3,12 @@ A Lounge&lt;Discord&gt; gaem project that gets completed.
 
 The loungescussion and circlejerk about The Game is [here](https://forum.loungecpp.net/topic/21/tatsoryk-a-lounge-discord-gaem-project-that-gets-completed) [regulars only].
 
+## Elevator Pitch
+
+A 2D top-down pvp arena shooter.
+
+Browser based client and Rust server.
+
 ## Using Vagrant
 
 1. Install [VirtualBox](https://www.virtualbox.org/wiki/Downloads) 5.0.14 or newer.
