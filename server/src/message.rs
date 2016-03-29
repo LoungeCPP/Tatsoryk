@@ -72,7 +72,7 @@ use serde_json;
 ///
 /// ```
 /// let msg_text = r#"{"type": "stop_moving"}"#.to_string();  // example
-/// match str::parse(&*&msg_text) {
+/// match str::parse(&msg_text) {
 ///     Ok(message: Message) => println!("Great! Message correct!"),
 ///     Err(error) => println!("Message malformed: {:?}", error),
 /// }
@@ -707,7 +707,7 @@ mod tests {
                            }
                            .to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        welcome_expected_json(id, speed, size, bullet_speed, bullet_size));
         }
 
@@ -721,7 +721,7 @@ mod tests {
 
             let json_txt = Message::GoAway { reason: reason.clone() }.to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        go_away_expected_json(reason));
         }
 
@@ -732,7 +732,7 @@ mod tests {
 
             let json_txt = Message::PlayerJoined { id: id }.to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        player_joined_expected_json(id));
         }
 
@@ -743,7 +743,7 @@ mod tests {
 
             let json_txt = Message::PlayerLeft { id: id }.to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        player_left_expected_json(id));
         }
 
@@ -767,7 +767,7 @@ mod tests {
                            }
                            .to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        shots_fired_expected_json(id, bullet_id, x, y, aim_x, aim_y));
         }
 
@@ -785,7 +785,7 @@ mod tests {
                            }
                            .to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        player_spawned_expected_json(id, x, y));
         }
 
@@ -801,7 +801,7 @@ mod tests {
                            }
                            .to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        player_destroyed_no_killer_expected_json(id));
         }
 
@@ -820,7 +820,7 @@ mod tests {
                            .to_string();
 
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        player_destroyed_with_killer_expected_json(id, killer_id, bullet_id));
         }
 
@@ -872,7 +872,7 @@ mod tests {
                            }
                            .to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        player_moving_expected_json(id, x, y, move_x, move_y));
         }
 
@@ -890,14 +890,14 @@ mod tests {
                            }
                            .to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        player_stopped_expected_json(id, x, y));
         }
 
         #[test]
         fn world_state_serializes_properly() {
             // TODO implement WorldState
-            assert_eq!(serde_json::from_str::<Value>(&*&Message::WorldState.to_string()).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&Message::WorldState.to_string()).unwrap(),
                        world_state_expected_json());
         }
 
@@ -913,7 +913,7 @@ mod tests {
                            }
                            .to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        start_moving_expected_json(move_x, move_y));
         }
 
@@ -921,7 +921,7 @@ mod tests {
         fn stop_moving_serializes_properly() {
             let json_txt = Message::StopMoving.to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        stop_moving_expected_json());
         }
 
@@ -937,7 +937,7 @@ mod tests {
                            }
                            .to_string();
 
-            assert_eq!(serde_json::from_str::<Value>(&*&json_txt).unwrap(),
+            assert_eq!(serde_json::from_str::<Value>(&json_txt).unwrap(),
                        fire_expected_json(move_x, move_y));
         }
     }
@@ -966,7 +966,7 @@ mod tests {
                     bullet_size: bullet_size,
                 };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&welcome_expected_json(id, speed, size, bullet_speed, bullet_size))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&welcome_expected_json(id, speed, size, bullet_speed, bullet_size))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -982,7 +982,7 @@ mod tests {
 
                 let expected_message = Message::GoAway { reason: reason.clone() };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&go_away_expected_json(reason))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&go_away_expected_json(reason))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -995,7 +995,7 @@ mod tests {
 
                 let expected_message = Message::PlayerJoined { id: id };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&player_joined_expected_json(id))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&player_joined_expected_json(id))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1008,7 +1008,7 @@ mod tests {
 
                 let expected_message = Message::PlayerLeft { id: id };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&player_left_expected_json(id))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&player_left_expected_json(id))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1033,7 +1033,7 @@ mod tests {
                     aim_y: aim_y,
                 };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&shots_fired_expected_json(id, bullet_id, x, y, aim_x, aim_y))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&shots_fired_expected_json(id, bullet_id, x, y, aim_x, aim_y))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1052,7 +1052,7 @@ mod tests {
                     y: y,
                 };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&player_spawned_expected_json(id, x, y))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&player_spawned_expected_json(id, x, y))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1069,7 +1069,7 @@ mod tests {
                     bullet_id: None,
                 };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&player_destroyed_no_killer_expected_json(id))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&player_destroyed_no_killer_expected_json(id))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1088,7 +1088,7 @@ mod tests {
                     bullet_id: Some(bullet_id),
                 };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&player_destroyed_with_killer_expected_json(id, killer_id, bullet_id))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&player_destroyed_with_killer_expected_json(id, killer_id, bullet_id))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1111,7 +1111,7 @@ mod tests {
                     move_y: move_y,
                 };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&player_moving_expected_json(id, x, y, move_x, move_y))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&player_moving_expected_json(id, x, y, move_x, move_y))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1130,7 +1130,7 @@ mod tests {
                     y: y,
                 };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&player_stopped_expected_json(id, x, y))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&player_stopped_expected_json(id, x, y))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1138,7 +1138,7 @@ mod tests {
 
             #[test]
             fn world_state_deserializes_properly() {
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&world_state_expected_json())
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&world_state_expected_json())
                                                         .unwrap())
                                .unwrap(),
                            Message::WorldState);
@@ -1155,7 +1155,7 @@ mod tests {
                     move_y: move_y,
                 };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&start_moving_expected_json(move_x, move_y))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&start_moving_expected_json(move_x, move_y))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1163,7 +1163,7 @@ mod tests {
 
             #[test]
             fn stop_moving_deserializes_properly() {
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&stop_moving_expected_json())
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&stop_moving_expected_json())
                                                         .unwrap())
                                .unwrap(),
                            Message::StopMoving);
@@ -1180,7 +1180,7 @@ mod tests {
                     move_y: move_y,
                 };
 
-                assert_eq!(str::parse::<Message>(&*&serde_json::to_string(&fire_expected_json(move_x, move_y))
+                assert_eq!(str::parse::<Message>(&serde_json::to_string(&fire_expected_json(move_x, move_y))
                                                         .unwrap())
                                .unwrap(),
                            expected_message);
@@ -1212,7 +1212,7 @@ mod tests {
                                        .remove("bullet_id")
                                        .unwrap();
 
-                match str::parse::<Message>(&*&serde_json::to_string(&unexpected_json).unwrap())
+                match str::parse::<Message>(&serde_json::to_string(&unexpected_json).unwrap())
                           .unwrap_err() {
                     MessageError::PropertyMissing(_) => {}
                     _ => panic!("Incorrect error kind"),
@@ -1237,7 +1237,7 @@ mod tests {
                                        .remove("killer_id")
                                        .unwrap();
 
-                match str::parse::<Message>(&*&serde_json::to_string(&unexpected_json).unwrap())
+                match str::parse::<Message>(&serde_json::to_string(&unexpected_json).unwrap())
                           .unwrap_err() {
                     MessageError::PropertyMissing(_) => {}
                     me => {
@@ -1254,7 +1254,7 @@ mod tests {
                                        .remove("type")
                                        .unwrap();
 
-                match str::parse::<Message>(&*&serde_json::to_string(&unexpected_json).unwrap())
+                match str::parse::<Message>(&serde_json::to_string(&unexpected_json).unwrap())
                           .unwrap_err() {
                     MessageError::PropertyMissing(_) => {}
                     me => {
@@ -1271,7 +1271,7 @@ mod tests {
                                        .remove("data")
                                        .unwrap();
 
-                match str::parse::<Message>(&*&serde_json::to_string(&unexpected_json).unwrap())
+                match str::parse::<Message>(&serde_json::to_string(&unexpected_json).unwrap())
                           .unwrap_err() {
                     MessageError::PropertyMissing(_) => {}
                     me => {
@@ -1291,7 +1291,7 @@ mod tests {
                                        .unwrap()
                                        .clear();
 
-                match str::parse::<Message>(&*&serde_json::to_string(&unexpected_json).unwrap())
+                match str::parse::<Message>(&serde_json::to_string(&unexpected_json).unwrap())
                           .unwrap_err() {
                     MessageError::PropertyMissing(_) => {}
                     me => {
@@ -1304,7 +1304,7 @@ mod tests {
             fn empty_toplevel_object_fails() {
                 let unexpected_json = serde_json::Value::Object(BTreeMap::new());
 
-                match str::parse::<Message>(&*&serde_json::to_string(&unexpected_json).unwrap())
+                match str::parse::<Message>(&serde_json::to_string(&unexpected_json).unwrap())
                           .unwrap_err() {
                     MessageError::PropertyMissing(_) => {}
                     me => {
@@ -1317,7 +1317,7 @@ mod tests {
             fn incorrect_toplevel_type_fails() {
                 let unexpected_json = serde_json::Value::Null;
 
-                match str::parse::<Message>(&*&serde_json::to_string(&unexpected_json).unwrap())
+                match str::parse::<Message>(&serde_json::to_string(&unexpected_json).unwrap())
                           .unwrap_err() {
                     MessageError::BadType(_) => {}
                     me => panic!(format!("Incorrect error kind: {:?}, should be BadType", me)),
