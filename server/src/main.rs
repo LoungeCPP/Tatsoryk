@@ -13,7 +13,7 @@
 extern crate serde_json;
 extern crate serde;
 
-mod message;
+pub mod message;
 
 use std::env;
 use std::vec::Vec;

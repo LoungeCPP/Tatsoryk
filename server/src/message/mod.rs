@@ -46,6 +46,7 @@
 //! All malformed messages MUST be rejected.
 
 mod err;
+mod player_bullet;
 
 use std::str::FromStr;
 use std::collections::BTreeMap;
@@ -53,6 +54,7 @@ use serde;
 use serde_json;
 
 pub use self::err::*;
+pub use self::player_bullet::*;
 
 #[cfg(test)]
 mod tests;
