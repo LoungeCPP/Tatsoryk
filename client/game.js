@@ -1,15 +1,16 @@
 (function() {
     'use strict';
+    var Game = window.Game = window.Game || {};
 
     //
     // Evil global state
     //
 
-    // TODO player-related state
-
-    var canvas = null;
+    var transport = null;
     var socket = null;
-    var address = null;
+
+    // TODO player-related state
+    var canvas = null;
     var lastTime = null;
     var keyboard = null;
 
@@ -23,18 +24,43 @@
     var INPUT_MOVE_RIGHT = 3;
     var INPUT_FIRE       = 4;
 
-    var onKeyInput = function(input) {
+    var onKeyDown = function(input) {
+        // TODO maintain a proper movement vector
+        socket.startMoving(Game.makeVector(0, 1));
+    };
+
+    var onKeyUp = function(input) {
+        // TODO maintain a proper movement vector
+        socket.stopMoving();
     };
 
     var onMouseInput = function(input, x, y) {
+        // TODO calculate aim vector
+        socket.fire(Game.makeVector(1, 1));
     };
 
     var bindInput = function() {
+        var bind = function(key, input) {
+            keyboard.register_combo({
+                keys:            key,
+                on_keydown:      onKeyDown.bind(null, input),
+                on_keyup:        onKeyUp.bind(null, input),
+                prevent_default: true,
+                prevent_repeat:  true,
+            });
+        };
+
         keyboard = new window.keypress.Listener();
+        bind('w', INPUT_MOVE_UP);
+        bind('s', INPUT_MOVE_DOWN);
+        bind('a', INPUT_MOVE_LEFT);
+        bind('d', INPUT_MOVE_RIGHT);
     };
 
     var unbindInput = function() {
-        keyboard.reset();
+        if (keyboard !== null) {
+            keyboard.reset();
+        }
         keyboard = null;
     };
 
@@ -87,43 +113,73 @@
     // Networking
     //
 
-    var handleMessage = function(msg) {
+    var handleWelcome = function(msg) {
         // TODO do stuff~
     };
 
-    var sendMessage = function(msg) {
-        msg = JSON.stringify(msg);
-        socket.send(msg);
+    var handleGoAway = function(msg) {
+        alert('Server terminated our connection: ' + msg.reason);
     };
 
-    var connect = function() {
-        console.log('Trying to connect to ' + address);
+    var handlePlayerJoined = function(msg) {
+        // TODO do stuff~
+    };
 
-        socket = new WebSocket(address);
+    var handlePlayerLeft = function(msg) {
+        // TODO do stuff~
+    };
 
-        socket.onopen = function() {
-            console.log('Connected to ' + address);
-            setupGame();
-        };
+    var handleShotsFired = function(msg) {
+        // TODO do stuff~
+    };
 
-        socket.onmessage = function(e) {
-            var message = JSON.parse(e.data);
-            handleMessage(msg);
-        };
+    var handlePlayerSpawned = function(msg) {
+        // TODO do stuff~
+    };
 
-        socket.onerror = socket.onclose = function() {
-            console.log('Disconnected from ' + address);
-            // TODO automatic reconnection
-            stopGame();
-        };
+    var handlePlayerDestroyed = function(msg) {
+        // TODO do stuff~
+    };
+
+    var handlePlayerMoving = function(msg) {
+        // TODO do stuff~
+    };
+
+    var handlePlayerStopped = function(msg) {
+        // TODO do stuff~
+    };
+
+    var handleWorldState = function(msg) {
+        // TODO do stuff~
+    };
+
+    var connect = function(address) {
+        transport = new Game.WSTransport(address);
+        transport.addListener('connect',    setupGame);
+        transport.addListener('disconnect', stopGame);
+
+        socket = new Game.Socket(transport);
+        socket.addListener('welcome',          handleWelcome);
+        socket.addListener('go_away',          handleGoAway);
+        socket.addListener('player_joined',    handlePlayerJoined);
+        socket.addListener('player_left',      handlePlayerLeft);
+        socket.addListener('shots_fired',      handleShotsFired);
+        socket.addListener('player_spawned',   handlePlayerSpawned);
+        socket.addListener('player_destroyed', handlePlayerDestroyed);
+        socket.addListener('player_moving',    handlePlayerMoving);
+        socket.addListener('player_stopped',   handlePlayerStopped);
+        socket.addListener('world_state',      handleWorldState);
+
+        transport.connect();
     };
 
     var disconnect = function() {
-        if (socket !== null) {
-            console.log('Disconnecting from ' + address);
-            socket.close();
-            socket = null;
+        if (transport !== null) {
+            transport.disconnect();
         }
+
+        transport = null;
+        socket    = null;
     };
 
     //
@@ -131,11 +187,10 @@
     //
 
     var onConnectClick = function(e) {
+        var address = document.getElementById('server-address').value;
+
         disconnect();
-
-        address = document.getElementById('server-address').value;
-        connect();
-
+        connect(address);
         e.stopPropagation();
     };
 
@@ -151,7 +206,7 @@
         document.getElementById('connect').addEventListener('click', onConnectClick);
         document.getElementById('disconnect').addEventListener('click', onDisconnectClick);
 
-        // TODO maybe figure out godo way to fill available viewport
+        // TODO maybe figure out good way to fill available viewport
 
         window.requestAnimationFrame(frame);
     };
