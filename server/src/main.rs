@@ -34,9 +34,9 @@ use events::WebSocketEvent;
 
 use server::listen;
 
-// The GameState contains the whole state of the game.
-// It consists of both players, and all the clients which are currently connected.
-//
+/// The GameState contains the whole state of the game.
+/// It consists of both players, and all the clients which are currently connected.
+///
 #[derive(Debug)]
 struct GameState {
     players: HashMap<u32, message::Player>,
@@ -52,8 +52,8 @@ impl GameState {
     }
 }
 
-// Serialize the entire game state into one json string.
-//
+/// Serialize the entire game state into one json string.
+///
 fn serialize_state(game_state: &GameState) -> String {
     let players: Vec<message::Player> = Vec::from_iter(game_state.players
                                                                  .values()
@@ -66,8 +66,8 @@ fn serialize_state(game_state: &GameState) -> String {
     state.to_string()
 }
 
-// Process a simple string message from the client.
-//
+/// Process a simple string message from the client.
+///
 fn process_client_message(game_state: &mut GameState, client_id: u32, message: message::Message) {
     match message {
         message::Message::StartMoving { move_x, move_y } => {
@@ -79,8 +79,8 @@ fn process_client_message(game_state: &mut GameState, client_id: u32, message: m
     }
 }
 
-// Process a web socket event.
-//
+/// Process a web socket event.
+///
 fn process_websocket_event(game_state: &mut GameState, message: WebSocketEvent) {
     match message {
         WebSocketEvent::ClientCreated { client } => {
@@ -99,8 +99,8 @@ fn process_websocket_event(game_state: &mut GameState, message: WebSocketEvent) 
     }
 }
 
-// Tries to process every available websocket event without blocking.
-//
+/// Tries to process every available websocket event without blocking.
+///
 fn process_websocket_events(game_state: &mut GameState,
                             game_messages: &std::sync::mpsc::Receiver<WebSocketEvent>) {
     loop {
@@ -116,8 +116,8 @@ fn process_websocket_events(game_state: &mut GameState,
     }
 }
 
-// Updates the game state in one tick.
-//
+/// Updates the game state in one tick.
+///
 fn process_game_update(game_state: &mut GameState) {
     for (_, player) in &mut game_state.players {
         player.x += player.move_x.unwrap_or(0.0);
@@ -125,8 +125,8 @@ fn process_game_update(game_state: &mut GameState) {
     }
 }
 
-// Send the current, entire state to each client.
-//
+/// Send the current, entire state to each client.
+///
 fn send_state_updates(game_state: &GameState) {
     let value = serialize_state(game_state);
 
@@ -137,11 +137,10 @@ fn send_state_updates(game_state: &GameState) {
     }
 }
 
-// Runs the main game loop.
-//
-// The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
-//
-
+/// Runs the main game loop.
+///
+/// The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
+///
 fn game_loop(game_messages: std::sync::mpsc::Receiver<WebSocketEvent>) {
     let mut game_state = GameState::new();
 
