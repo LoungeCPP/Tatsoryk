@@ -1,3 +1,5 @@
+//! The common data formats for server-client communication.
+//!
 //! All communication is done via discrete messages, each having a type and zero or more key-value properties.
 //! Three definitions below: protocol in abstract terms, encoding of the messages (currently JSON) and transport/framing (currently TCP/WebSocket).
 //! Ping/pong and timeouts are handled in the transport, so there shouldn't be any messages doing that in the protocol.
