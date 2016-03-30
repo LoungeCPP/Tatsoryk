@@ -8,23 +8,22 @@ use std;
 use message;
 
 /// This represents a single websocket connected to the game.
-/// The id is a unique id.
-/// 'sender' is a channel which allows you to send messages to the corresponding websocket.
-/// Send a None to close the websocket. (Some(data) for a normal message).
 pub struct Client {
     /// The unique id for the client.
     pub id: u32,
+
+    /// 'sender' is a channel which allows you to send messages to the corresponding websocket.
+    /// Send a None to close the websocket. (Some(data) for a normal message).
     sender: Sender<Option<String>>,
 }
 
 impl Client {
     /// / Create a new client from a given id and sender channel.
     pub fn new(id: u32, sender: Sender<Option<String>>) -> Client {
-        let result = Client {
+        Client {
             id: id,
             sender: sender,
-        };
-        result
+        }
     }
 
     /// Send a message to the websocket.
