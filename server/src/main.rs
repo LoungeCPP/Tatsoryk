@@ -10,16 +10,12 @@
 
 pub mod message;
 
+extern crate time;
+extern crate websocket;
 extern crate serde;
 extern crate serde_json;
 
-extern crate time;
-extern crate websocket;
-
-use serde_json::builder::ObjectBuilder;
-
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use std::env;
 use std::sync::mpsc::channel;
@@ -32,18 +28,8 @@ use websocket::{Server, Message, Sender, Receiver};
 use websocket::server::Connection;
 use websocket::stream::WebSocketStream;
 
-/*
-  A game entity is simply something with an x and y position.
-  Right now there are only player entities.
-  The player id is right now the ip address/port.
-  NOTE: There is a risk of overlap here if people leave. This needs fixing.
-  */
-#[derive(Debug)]
-struct Entity {
-    id: String,
-    x: f64,
-    y: f64,
-}
+use std::iter::FromIterator;
+use std::str::FromStr;
 
 /*
   A WebSocketEvent is any websocket message which might be sent to the main game loop.
@@ -53,8 +39,8 @@ struct Entity {
 #[derive(Debug)]
 enum WebSocketEvent {
     ClientCreated(Client),
-    ClientClosed(String),
-    ClientMessage(String, String),
+    ClientClosed(u32),
+    ClientMessage(u32, message::Message),
 }
 
 /*
@@ -64,21 +50,20 @@ enum WebSocketEvent {
   Send a None to close the websocket. (Some(data) for a normal message).
   */
 struct Client {
-    id: String, 
+    id: u32, 
     sender: std::sync::mpsc::Sender<Option<String>>,
-    pressed_keys: HashSet<String>,
 }
 
 impl Client {
     /* 
       Create a new client from a given id and sender channel.
     */
-    fn new(id: String, sender: std::sync::mpsc::Sender<Option<String>>) -> Client {
-        Client {
+    fn new(id: u32, sender: std::sync::mpsc::Sender<Option<String>>) -> Client {
+        let result = Client {
             id: id,
             sender: sender,
-            pressed_keys: HashSet::new(),
-        }
+        };
+        result
     }
 
     /*
@@ -94,17 +79,6 @@ impl Client {
     fn close(&self) -> Result<(), std::sync::mpsc::SendError<Option<String>>> {
         self.sender.send(None)
     }
-
-    /*
-      Manipulate the pressed keys with keydown and keyup events.
-    */
-    fn keydown(&mut self, key: String) {
-        self.pressed_keys.insert(key);
-    }
-
-    fn keyup(&mut self, key: String) {
-        self.pressed_keys.remove(&key);
-    }
 }
 
 impl std::fmt::Debug for Client {
@@ -119,14 +93,14 @@ impl std::fmt::Debug for Client {
 */
 #[derive(Debug)]
 struct GameState {
-    entities: HashMap<String, Entity>,
-    clients: HashMap<String, Client>,
+    players: HashMap<u32, message::Player>,
+    clients: HashMap<u32, Client>,
 }
 
 impl GameState {
     fn new() -> GameState {
         GameState {
-            entities: HashMap::new(),
+            players: HashMap::new(),
             clients: HashMap::new(),
         }
     }
@@ -135,39 +109,28 @@ impl GameState {
 /*
   Serialize the entire game state into one json object.
 */
-fn serialize_state(game_state: &GameState) -> serde_json::value::Value {
-    ObjectBuilder::new()
-        .insert_array("entities", |builder| {
-            game_state.entities.iter().fold(builder, |builder, (_, entity)| 
-                builder.push_object(|builder| {
-                    // Simply add the id, x, and y for each entity.
-                    // TODO: This should be a map, not an array.
-                    builder.insert("id", entity.id.clone()).insert("x", entity.x).insert("y", entity.y)
-                })
-            )
-        })
-        .unwrap()
+fn serialize_state(game_state: &GameState) -> String {
+    let players: Vec<message::Player> = Vec::from_iter(game_state.players.values().map(|a| a.clone()));
+    let state = message::Message::WorldState {
+        player_count: players.len() as u32,
+        alive_players: players,
+        alive_bullets: Vec::new(),
+    };
+    state.to_string()
 }
 
 /*
   Process a simple string message from the client.
   TODO: All this manual json parsing is error prone, find a better way to do it.
 */
-fn process_client_message(game_state: &mut GameState, client_id: String, message: String) {
-    let parsed_json: serde_json::value::Value = serde_json::de::from_str(&message).unwrap();
-
-    let event_type = parsed_json.find("type").unwrap().as_string().unwrap();
-
-    match event_type {
-        "keydown" => {
-            let key = parsed_json.find("key").unwrap().as_string().unwrap().to_string();
-            game_state.clients.get_mut(&client_id).unwrap().keydown(key);
+fn process_client_message(game_state: &mut GameState, client_id: u32, message: message::Message) {
+    match message {
+        message::Message::StartMoving {move_x, move_y} => {
+            let player = game_state.players.get_mut(&client_id).unwrap();
+            player.move_x = Some(move_x);
+            player.move_y = Some(move_y);
         },
-        "keyup" => {
-            let key = parsed_json.find("key").unwrap().as_string().unwrap().to_string();
-            game_state.clients.get_mut(&client_id).unwrap().keyup(key);
-        },
-        _ => panic!("Unexpected event type {}.", event_type),
+        _ => panic!("Unprocessed message! {}", message.to_string())
     }
 }
 
@@ -177,7 +140,8 @@ fn process_client_message(game_state: &mut GameState, client_id: String, message
 fn process_websocket_event(game_state: &mut GameState, message: WebSocketEvent) {
     match message {
         WebSocketEvent::ClientCreated(new_client) => {
-            game_state.entities.insert(new_client.id.clone(), Entity { id: new_client.id.clone(), x: 0.0, y: 0.0 });
+            game_state.players.insert(new_client.id.clone(), 
+                message::Player::not_moving(new_client.id.clone(), 0.0, 0.0));
             game_state.clients.insert(new_client.id.clone(), new_client);
         },
         WebSocketEvent::ClientClosed(client_id) => {
@@ -208,19 +172,9 @@ fn process_websocket_events(game_state: &mut GameState, game_messages: &std::syn
   Updates the game state in one tick.
 */
 fn process_game_update(game_state: &mut GameState) {
-    for (_, client) in &game_state.clients {
-        if client.pressed_keys.contains("ArrowUp") {
-            game_state.entities.get_mut(&client.id).unwrap().y -= 1.0;
-        }
-        if client.pressed_keys.contains("ArrowDown") {
-            game_state.entities.get_mut(&client.id).unwrap().y += 1.0;
-        }
-        if client.pressed_keys.contains("ArrowLeft") {
-            game_state.entities.get_mut(&client.id).unwrap().x -= 1.0;
-        } 
-        if client.pressed_keys.contains("ArrowRight") {
-            game_state.entities.get_mut(&client.id).unwrap().x += 1.0;
-        }
+    for (_, player) in &mut game_state.players {
+        player.x += player.move_x.unwrap_or(0.0);
+        player.y += player.move_y.unwrap_or(0.0);
     }
 }
 
@@ -230,12 +184,10 @@ fn process_game_update(game_state: &mut GameState) {
 fn send_state_updates(game_state: &GameState) {
     let value = serialize_state(game_state);
 
-    let result = serde_json::ser::to_string(&value).unwrap();
-
     for (_, client) in &game_state.clients {
         // Always ignore if the send fails.
         // We will eventually get a disconnect WebSocketMessage where we will cleanly do the disconnect.
-        let _ = client.send(result.clone());
+        let _ = client.send(value.clone());
     }
 }
 
@@ -273,7 +225,7 @@ fn game_loop(game_messages: std::sync::mpsc::Receiver<WebSocketEvent>) {
     One which forever reads from the game loop via a channel and sends stuff to the websocket when requested.
     And one which forever reads from a websocket and sends the stuff to the game loop via a channel.
 */
-fn handle_connection(connection: std::io::Result<Connection<WebSocketStream, WebSocketStream>>, game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>) {
+fn handle_connection(id: u32, connection: std::io::Result<Connection<WebSocketStream, WebSocketStream>>, game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>) {
     let request = connection.unwrap().read_request().unwrap(); // Get the request
 
     request.validate().unwrap(); // Validate the request
@@ -287,8 +239,6 @@ fn handle_connection(connection: std::io::Result<Connection<WebSocketStream, Web
         .peer_addr()
         .unwrap();
 
-    let id = ip.to_string();
-
     println!("Connection from {}", id);
 
     let (mut sender, mut receiver) = client.split();
@@ -297,7 +247,7 @@ fn handle_connection(connection: std::io::Result<Connection<WebSocketStream, Web
     let (tx, rx) = channel::<Option<String>>();
 
     // Should never fail
-    game_messages_sender.send(WebSocketEvent::ClientCreated(Client::new(id.clone(), tx))).unwrap();
+    game_messages_sender.send(WebSocketEvent::ClientCreated(Client::new(id, tx))).unwrap();
 
     // Create the thread for sending websocket messages.
     thread::spawn(move || {
@@ -328,7 +278,7 @@ fn handle_connection(connection: std::io::Result<Connection<WebSocketStream, Web
                 let text = std::str::from_utf8(&message.payload).unwrap().to_string();
 
                 // Should never fail
-                game_messages_sender.send(WebSocketEvent::ClientMessage(id.clone(), text)).unwrap();
+                game_messages_sender.send(WebSocketEvent::ClientMessage(id.clone(), message::Message::from_str(&text).unwrap())).unwrap();
             }
             _ => {
                 panic!("Unknown message type {:?}", message);
@@ -344,11 +294,15 @@ fn listen(host: &str, port: u16, game_messages_sender: std::sync::mpsc::Sender<W
     println!("Listening on {}:{}", host, port);
     let server = Server::bind((host, port)).unwrap();
 
+    let mut next_client_id = 0;
+
     for connection in server {
         let temp = game_messages_sender.clone();
+        let id = next_client_id;
+        next_client_id += 1;
         // Spawn a new thread for each connection.
         thread::spawn(move || {
-            handle_connection(connection, temp);
+            handle_connection(id, connection, temp);
         });
     }
     

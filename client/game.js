@@ -25,14 +25,38 @@
     var INPUT_MOVE_RIGHT = 3;
     var INPUT_FIRE       = 4;
 
-    var onKeyDown = function(event) {
-        var message = {type: 'keydown', key: event.code};
+    var keymap = {};
+
+    var updateMoving = function() {
+
+        var move_x = 0;
+        var move_y = 0;
+
+        if (keymap['ArrowUp']) {
+            move_y += -1;
+        }
+        if (keymap['ArrowDown']) {
+            move_y += 1;
+        }
+        if (keymap['ArrowLeft']) {
+            move_x += -1;
+        }
+        if (keymap['ArrowRight']) {
+            move_x += 1;
+        }
+
+        var message = {type: 'start_moving', data: {move_x: move_x, move_y: move_y}};
         socket.send(JSON.stringify(message));
+    }
+
+    var onKeyDown = function(event) {
+        keymap[event.code] = true;
+        updateMoving();
     };
 
     var onKeyUp = function(event) {
-        var message = {type: 'keyup', key: event.code};
-        socket.send(JSON.stringify(message));
+        keymap[event.code] = false;
+        updateMoving();
     }
 
     var onMouseInput = function(input, x, y) {
@@ -92,7 +116,7 @@
 
     var handleMessage = function(msg) {
         // TODO do stuff~
-        entities = msg.entities;
+        entities = msg.data.alive_players;
     };
 
     var sendMessage = function(msg) {
