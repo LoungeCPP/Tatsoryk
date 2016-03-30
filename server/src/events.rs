@@ -13,12 +13,12 @@ use message;
 /// Send a None to close the websocket. (Some(data) for a normal message).
 pub struct Client {
     /// The unique id for the client.
-    pub id: u32, 
+    pub id: u32,
     sender: Sender<Option<String>>,
 }
 
 impl Client {
-    //// Create a new client from a given id and sender channel.
+    /// / Create a new client from a given id and sender channel.
     pub fn new(id: u32, sender: Sender<Option<String>>) -> Client {
         let result = Client {
             id: id,

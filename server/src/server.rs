@@ -131,7 +131,9 @@ fn handle_connection(id: u32,
 }
 
 /// The main listening loop for the server.
-pub fn listen(host: &str, port: u16, game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>) {
+pub fn listen(host: &str,
+              port: u16,
+              game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>) {
     println!("Listening on {}:{}", host, port);
     let server = Server::bind((host, port)).unwrap();
 
