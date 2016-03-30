@@ -244,7 +244,7 @@ impl ToString for Message {
     fn to_string(&self) -> String {
         let mut values = BTreeMap::new();
         let msg_type = match self {
-            &Message::Welcome{id, speed, size, bullet_speed, bullet_size} => {
+            &Message::Welcome { id, speed, size, bullet_speed, bullet_size } => {
                 add_data_id_speeds_sizes_entries(&mut values,
                                                  id,
                                                  speed,
@@ -253,27 +253,27 @@ impl ToString for Message {
                                                  bullet_size);
                 "welcome"
             }
-            &Message::GoAway{ref reason} => {
+            &Message::GoAway { ref reason } => {
                 add_data_entry(&mut values, "reason", &reason);
                 "go_away"
             }
-            &Message::PlayerJoined{id} => {
+            &Message::PlayerJoined { id } => {
                 add_data_entry(&mut values, "id", &id);
                 "player_joined"
             }
-            &Message::PlayerLeft{id} => {
+            &Message::PlayerLeft { id } => {
                 add_data_entry(&mut values, "id", &id);
                 "player_left"
             }
-            &Message::ShotsFired{id, bullet_id, x, y, aim_x, aim_y} => {
+            &Message::ShotsFired { id, bullet_id, x, y, aim_x, aim_y } => {
                 add_shot_data_entries(&mut values, id, bullet_id, x, y, aim_x, aim_y);
                 "shots_fired"
             }
-            &Message::PlayerSpawned{id, x, y} => {
+            &Message::PlayerSpawned { id, x, y } => {
                 add_data_id_pos_entries(&mut values, id, x, y);
                 "player_spawned"
             }
-            &Message::PlayerDestroyed{id, killer_id, bullet_id} => {
+            &Message::PlayerDestroyed { id, killer_id, bullet_id } => {
                 add_data_entry(&mut values, "id", &id);
                 match (killer_id, bullet_id) {
                     (Some(killer_id), Some(bullet_id)) => {
@@ -285,15 +285,15 @@ impl ToString for Message {
                 }
                 "player_destroyed"
             }
-            &Message::PlayerMoving{id, x, y, move_x, move_y} => {
+            &Message::PlayerMoving { id, x, y, move_x, move_y } => {
                 add_data_id_pos_moves_entries(&mut values, id, x, y, move_x, move_y);
                 "player_moving"
             }
-            &Message::PlayerStopped{id, x, y} => {
+            &Message::PlayerStopped { id, x, y } => {
                 add_data_id_pos_entries(&mut values, id, x, y);
                 "player_stopped"
             }
-            &Message::WorldState{player_count, ref alive_players, ref alive_bullets} => {
+            &Message::WorldState { player_count, ref alive_players, ref alive_bullets } => {
                 add_data_entry(&mut values, "player_count", &player_count);
                 add_data_entry(&mut values,
                                "alive_players",
@@ -303,12 +303,12 @@ impl ToString for Message {
                                &alive_bullets.iter().map(|ref b| b.to_json()).collect::<Vec<_>>());
                 "world_state"
             }
-            &Message::StartMoving{move_x, move_y} => {
+            &Message::StartMoving { move_x, move_y } => {
                 add_data_move_entries(&mut values, move_x, move_y);
                 "start_moving"
             }
             &Message::StopMoving => "stop_moving",
-            &Message::Fire{move_x, move_y} => {
+            &Message::Fire { move_x, move_y } => {
                 add_data_move_entries(&mut values, move_x, move_y);
                 "fire"
             }
@@ -639,9 +639,7 @@ fn decompose_world_state(data: &BTreeMap<String, serde_json::Value>)
                                                    Bullet::from_json,
                                                    Bullet::not_moving(0, 0f32, 0f32)));
 
-    Ok((try!(unpack_u32(data.get("player_count").unwrap())),
-        alive_players,
-        alive_bullets))
+    Ok((try!(unpack_u32(data.get("player_count").unwrap())), alive_players, alive_bullets))
 }
 
 fn decompose_id_pos_moves(data: &BTreeMap<String, serde_json::Value>)

@@ -33,33 +33,36 @@ use websocket::stream::WebSocketStream;
 use std::iter::FromIterator;
 use std::str::FromStr;
 
-/*
-  A WebSocketEvent is any websocket message which might be sent to the main game loop.
-  Right now, we have clients connecting, disconnecting, and sending messages.
-  This is the place where we would add additional stuff like say, unix signals.
-*/
+
+/// A WebSocketEvent is any websocket message which might be sent to the main game loop.
+/// Right now, we have clients connecting, disconnecting, and sending messages.
+/// This is the place where we would add additional stuff like say, unix signals.
+///
 #[derive(Debug)]
 enum WebSocketEvent {
-    ClientCreated {client: Client},
-    ClientClosed {client_id: u32},
-    ClientMessage {client_id: u32, message: message::Message},
+    ClientCreated {
+        client: Client,
+    },
+    ClientClosed {
+        client_id: u32,
+    },
+    ClientMessage {
+        client_id: u32,
+        message: message::Message,
+    },
 }
 
-/*
-  This represends a single websocket connected to the game.
-  The id is simply the ip address and port.
-  'sender' is a channel which allows you to send messages to the corresponding websocket.
-  Send a None to close the websocket. (Some(data) for a normal message).
-  */
+/// This represents a single websocket connected to the game.
+/// The id is now a unique id.
+/// 'sender' is a channel which allows you to send messages to the corresponding websocket.
+/// Send a None to close the websocket. (Some(data) for a normal message).
 struct Client {
-    id: u32, 
+    id: u32,
     sender: std::sync::mpsc::Sender<Option<String>>,
 }
 
 impl Client {
-    /* 
-      Create a new client from a given id and sender channel.
-    */
+    /// Create a new client from a given id and sender channel.
     fn new(id: u32, sender: std::sync::mpsc::Sender<Option<String>>) -> Client {
         let result = Client {
             id: id,
@@ -68,9 +71,8 @@ impl Client {
         result
     }
 
-    /*
-      Send a message to the websocket.
-    */
+    // Send a message to the websocket.
+    //
     fn send(&self, message: String) -> Result<(), std::sync::mpsc::SendError<Option<String>>> {
         self.sender.send(Some(message))
     }
@@ -89,10 +91,9 @@ impl std::fmt::Debug for Client {
     }
 }
 
-/*
-  The GameState contains the whole state of the game.
-  It consists of both players, and all the clients which are currently connected.
-*/
+// The GameState contains the whole state of the game.
+// It consists of both players, and all the clients which are currently connected.
+//
 #[derive(Debug)]
 struct GameState {
     players: HashMap<u32, message::Player>,
@@ -108,11 +109,12 @@ impl GameState {
     }
 }
 
-/*
-  Serialize the entire game state into one json string.
-*/
+// Serialize the entire game state into one json string.
+//
 fn serialize_state(game_state: &GameState) -> String {
-    let players: Vec<message::Player> = Vec::from_iter(game_state.players.values().map(|a| a.clone()));
+    let players: Vec<message::Player> = Vec::from_iter(game_state.players
+                                                                 .values()
+                                                                 .map(|a| a.clone()));
     let state = message::Message::WorldState {
         player_count: players.len() as u32,
         alive_players: players,
@@ -121,57 +123,58 @@ fn serialize_state(game_state: &GameState) -> String {
     state.to_string()
 }
 
-/*
-  Process a simple string message from the client.
-*/
+// Process a simple string message from the client.
+//
 fn process_client_message(game_state: &mut GameState, client_id: u32, message: message::Message) {
     match message {
-        message::Message::StartMoving {move_x, move_y} => {
+        message::Message::StartMoving { move_x, move_y } => {
             let player = game_state.players.get_mut(&client_id).unwrap();
             player.move_x = Some(move_x);
             player.move_y = Some(move_y);
-        },
-        _ => panic!("Unprocessed message! {}", message.to_string())
+        }
+        _ => panic!("Unprocessed message! {}", message.to_string()),
     }
 }
 
-/*
-  Process a web socket event.
-*/
+// Process a web socket event.
+//
 fn process_websocket_event(game_state: &mut GameState, message: WebSocketEvent) {
     match message {
         WebSocketEvent::ClientCreated { client } => {
-            let _ = game_state.players.insert(client.id.clone(), 
-                message::Player::not_moving(client.id.clone(), 0.0, 0.0));
+            let _ = game_state.players.insert(client.id.clone(),
+                                              message::Player::not_moving(client.id.clone(),
+                                                                          0.0,
+                                                                          0.0));
             let _ = game_state.clients.insert(client.id.clone(), client);
-        },
-        WebSocketEvent::ClientClosed {client_id } => {
+        }
+        WebSocketEvent::ClientClosed { client_id } => {
             let _ = game_state.clients.remove(&client_id);
-        },
+        }
         WebSocketEvent::ClientMessage { client_id, message } => {
             process_client_message(game_state, client_id, message);
-        },
+        }
     }
 }
 
-/*
-  Tries to process every available websocket event without blocking.
-*/
-fn process_websocket_events(game_state: &mut GameState, game_messages: &std::sync::mpsc::Receiver<WebSocketEvent>) {
+// Tries to process every available websocket event without blocking.
+//
+fn process_websocket_events(game_state: &mut GameState,
+                            game_messages: &std::sync::mpsc::Receiver<WebSocketEvent>) {
     loop {
         match game_messages.try_recv() {
             Ok(a) => process_websocket_event(game_state, a),
-            Err(e) => match e {
-                std::sync::mpsc::TryRecvError::Empty => return,
-                std::sync::mpsc::TryRecvError::Disconnected => panic!("Now I am disconnected?"),
+            Err(e) => {
+                match e {
+                    std::sync::mpsc::TryRecvError::Empty => return,
+                    std::sync::mpsc::TryRecvError::Disconnected => panic!("Now I am disconnected?"),
+                }
             }
         }
     }
 }
 
-/*
-  Updates the game state in one tick.
-*/
+// Updates the game state in one tick.
+//
 fn process_game_update(game_state: &mut GameState) {
     for (_, player) in &mut game_state.players {
         player.x += player.move_x.unwrap_or(0.0);
@@ -179,9 +182,8 @@ fn process_game_update(game_state: &mut GameState) {
     }
 }
 
-/*
-  Send the current, entire state to each client.
-*/
+// Send the current, entire state to each client.
+//
 fn send_state_updates(game_state: &GameState) {
     let value = serialize_state(game_state);
 
@@ -192,11 +194,10 @@ fn send_state_updates(game_state: &GameState) {
     }
 }
 
-/*
-  Runs the main game loop.
-
-  The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
-*/
+// Runs the main game loop.
+//
+// The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
+//
 
 fn game_loop(game_messages: std::sync::mpsc::Receiver<WebSocketEvent>) {
     let mut game_state = GameState::new();
@@ -212,7 +213,8 @@ fn game_loop(game_messages: std::sync::mpsc::Receiver<WebSocketEvent>) {
         send_state_updates(&game_state);
 
         // Sleep if needed to the next update
-        let time_till_next = (((iter + 1) * iter_length) as i64) - ((time::precise_time_ns() - start_time) as i64);
+        let time_till_next = (((iter + 1) * iter_length) as i64) -
+                             ((time::precise_time_ns() - start_time) as i64);
         iter += 1;
         if time_till_next > 0 {
             std::thread::sleep(Duration::new(0, time_till_next as u32));
@@ -238,17 +240,20 @@ impl From<websocket::result::WebSocketError> for AllErrors {
     }
 }
 
-/*
-  Constantly send messages over the websocket.
-*/
-fn websocket_send_loop<S: Sender>(rx: std::sync::mpsc::Receiver<Option<String>>, mut sender: S) -> Result<(), AllErrors> {
+// Constantly send messages over the websocket.
+//
+fn websocket_send_loop<S: Sender>(rx: std::sync::mpsc::Receiver<Option<String>>,
+                                  mut sender: S)
+                                  -> Result<(), AllErrors> {
     for message in rx {
         match message {
-            Some(text) => {try!(sender.send_message(&Message::text(text)));},
+            Some(text) => {
+                try!(sender.send_message(&Message::text(text)));
+            }
             None => {
                 try!(sender.send_message(&Message::close()));
                 return Ok(());
-            },
+            }
         }
     }
 
@@ -256,17 +261,15 @@ fn websocket_send_loop<S: Sender>(rx: std::sync::mpsc::Receiver<Option<String>>,
 }
 
 
-/*
-  Handle a given connection.
-  The basic idea is what we create two infinite loops:
-    One which forever reads from the game loop via a channel and sends stuff to the websocket when requested.
-    And one which forever reads from a websocket and sends the stuff to the game loop via a channel.
-*/
-fn handle_connection(
-    id: u32, 
-    connection: std::io::Result<Connection<WebSocketStream, WebSocketStream>>, 
-    game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>
-) -> Result<(), AllErrors> {
+// Handle a given connection.
+// The basic idea is what we create two infinite loops:
+// One which forever reads from the game loop via a channel and sends stuff to the websocket when requested.
+// And one which forever reads from a websocket and sends the stuff to the game loop via a channel.
+//
+fn handle_connection(id: u32,
+                     connection: std::io::Result<Connection<WebSocketStream, WebSocketStream>>,
+                     game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>)
+                     -> Result<(), AllErrors> {
     let request = try!(connection.unwrap().read_request()); // Get the request
 
     try!(request.validate()); // Validate the request
@@ -276,9 +279,9 @@ fn handle_connection(
     let mut client = try!(response.send()); // Send the response
 
     let ip = client.get_mut_sender()
-        .get_mut()
-        .peer_addr()
-        .unwrap();
+                   .get_mut()
+                   .peer_addr()
+                   .unwrap();
 
     println!("Connection from {}", id);
 
@@ -288,12 +291,13 @@ fn handle_connection(
     let (tx, rx) = channel::<Option<String>>();
 
     // Should never fail
-    game_messages_sender.send(WebSocketEvent::ClientCreated{client :Client::new(id, tx)}).unwrap();
+    game_messages_sender.send(WebSocketEvent::ClientCreated { client: Client::new(id, tx) })
+                        .unwrap();
 
     // Create the thread for sending websocket messages.
     let _ = thread::spawn(move || {
         match websocket_send_loop(rx, sender) {
-            Ok(()) => {}, // ignore
+            Ok(()) => {} // ignore
             Err(e) => panic!("Send loop had an error for client {} , {:?}", id, e),
         }
     });
@@ -307,16 +311,19 @@ fn handle_connection(
                 println!("Client {} disconnected", ip);
 
                 // Should never fail
-                game_messages_sender.send(WebSocketEvent::ClientClosed {client_id: id.clone()}).unwrap();
+                game_messages_sender.send(WebSocketEvent::ClientClosed { client_id: id.clone() })
+                                    .unwrap();
                 return Ok(());
-            },
+            }
             Type::Text => {
                 let text = std::str::from_utf8(&message.payload).unwrap().to_string();
 
                 // Should never fail
-                game_messages_sender.send(
-                    WebSocketEvent::ClientMessage {client_id: id.clone(), message: message::Message::from_str(&text).unwrap()}
-                ).unwrap();
+                game_messages_sender.send(WebSocketEvent::ClientMessage {
+                                        client_id: id.clone(),
+                                        message: message::Message::from_str(&text).unwrap(),
+                                    })
+                                    .unwrap();
             }
             _ => {
                 panic!("Unknown message type {:?}", message);
@@ -327,9 +334,8 @@ fn handle_connection(
     return Ok(());
 }
 
-/*
-  The main listening loop for the server.
-*/
+// The main listening loop for the server.
+//
 fn listen(host: &str, port: u16, game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>) {
     println!("Listening on {}:{}", host, port);
     let server = Server::bind((host, port)).unwrap();
@@ -344,11 +350,11 @@ fn listen(host: &str, port: u16, game_messages_sender: std::sync::mpsc::Sender<W
         let _ = thread::spawn(move || {
             match handle_connection(id, connection, temp) {
                 Err(e) => panic!("Connection {} quit with error {:?}", id, e),
-                Ok(_) => {},
+                Ok(_) => {}
             };
         });
     }
-    
+
 }
 
 fn main() {
