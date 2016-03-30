@@ -1,3 +1,5 @@
+//! The server logic for the game.
+//!
 //! In order for the multiplayer to work, the server program listens for websocket connections.
 //! This file implements that logic.
 
@@ -57,6 +59,7 @@ fn websocket_send_loop<S: Sender>(rx: std::sync::mpsc::Receiver<Option<String>>,
 
 
 /// Handle a given connection.
+///
 /// The basic idea is what we create two infinite loops:
 /// One which forever reads from the game loop via a channel and sends stuff to the websocket when requested.
 /// And one which forever reads from a websocket and sends the stuff to the game loop via a channel.

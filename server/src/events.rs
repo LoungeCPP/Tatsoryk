@@ -1,3 +1,5 @@
+//! The common data formats for cross-thread events.
+//!
 //! The game itself consists of multiple threads, a single game loop thread as well as multiple server threads.
 //! These threads communicate back and forth between each other using a couple of mpsc channels.
 //! This file defines the common data formats for those channels.
@@ -13,6 +15,7 @@ pub struct Client {
     pub id: u32,
 
     /// 'sender' is a channel which allows you to send messages to the corresponding websocket.
+    ///
     /// Send a None to close the websocket. (Some(data) for a normal message).
     sender: Sender<Option<String>>,
 }
@@ -44,6 +47,7 @@ impl std::fmt::Debug for Client {
 }
 
 /// A WebSocketEvent is any websocket message which might be sent to the main game loop.
+///
 /// Right now, we have clients connecting, disconnecting, and sending messages.
 /// This is the place where we would add additional stuff like say, unix signals.
 #[derive(Debug)]

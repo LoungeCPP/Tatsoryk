@@ -13,6 +13,7 @@ use events::Client;
 use events::WebSocketEvent;
 
 /// The GameState contains the whole state of the game.
+/// 
 /// It consists of both players, and all the clients which are currently connected.
 #[derive(Debug)]
 pub struct GameState {
