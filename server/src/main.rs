@@ -34,7 +34,6 @@ use gamestate::GameState;
 /// Runs the main game loop.
 ///
 /// The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
-///
 fn game_loop(game_messages: std::sync::mpsc::Receiver<WebSocketEvent>) {
     let mut game_state = GameState::new();
 

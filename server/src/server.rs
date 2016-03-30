@@ -37,7 +37,6 @@ impl From<websocket::result::WebSocketError> for AllErrors {
 }
 
 /// Constantly send messages over the websocket.
-///
 fn websocket_send_loop<S: Sender>(rx: std::sync::mpsc::Receiver<Option<String>>,
                                   mut sender: S)
                                   -> Result<(), AllErrors> {
@@ -61,7 +60,6 @@ fn websocket_send_loop<S: Sender>(rx: std::sync::mpsc::Receiver<Option<String>>,
 /// The basic idea is what we create two infinite loops:
 /// One which forever reads from the game loop via a channel and sends stuff to the websocket when requested.
 /// And one which forever reads from a websocket and sends the stuff to the game loop via a channel.
-///
 fn handle_connection(id: u32,
                      connection: std::io::Result<Connection<WebSocketStream, WebSocketStream>>,
                      game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>)

@@ -14,7 +14,6 @@ use events::WebSocketEvent;
 
 /// The GameState contains the whole state of the game.
 /// It consists of both players, and all the clients which are currently connected.
-///
 #[derive(Debug)]
 pub struct GameState {
     players: HashMap<u32, message::Player>,
@@ -31,7 +30,6 @@ impl GameState {
     }
 
     /// Serialize the entire game state into one json string.
-    ///
     fn serialize(&self) -> String {
         let players: Vec<message::Player> = Vec::from_iter(self.players
                                                                .values()
@@ -45,7 +43,6 @@ impl GameState {
     }
 
     /// Process a simple string message from the client.
-    ///
     fn process_client_message(&mut self, client_id: u32, message: message::Message) {
         match message {
             message::Message::StartMoving { move_x, move_y } => {
@@ -58,7 +55,6 @@ impl GameState {
     }
 
     /// Process a web socket event.
-    ///
     fn process_websocket_event(&mut self, message: WebSocketEvent) {
         match message {
             WebSocketEvent::ClientCreated { client } => {
@@ -78,7 +74,6 @@ impl GameState {
     }
 
     /// Tries to process every available websocket event without blocking.
-    ///
     pub fn process_websocket_events(&mut self,
                                     game_messages: &std::sync::mpsc::Receiver<WebSocketEvent>) {
         loop {
@@ -97,7 +92,6 @@ impl GameState {
     }
 
     /// Updates the game state in one tick.
-    ///
     pub fn process_game_update(&mut self) {
         for (_, player) in &mut self.players {
             player.x += player.move_x.unwrap_or(0.0);
@@ -106,7 +100,6 @@ impl GameState {
     }
 
     /// Send the current state to each client.
-    ///
     pub fn send_state_updates(&self) {
         let value = self.serialize();
 

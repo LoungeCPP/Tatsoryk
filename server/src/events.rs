@@ -46,7 +46,6 @@ impl std::fmt::Debug for Client {
 /// A WebSocketEvent is any websocket message which might be sent to the main game loop.
 /// Right now, we have clients connecting, disconnecting, and sending messages.
 /// This is the place where we would add additional stuff like say, unix signals.
-///
 #[derive(Debug)]
 pub enum WebSocketEvent {
     ClientCreated {
