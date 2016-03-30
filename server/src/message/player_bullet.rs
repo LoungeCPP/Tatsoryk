@@ -7,11 +7,11 @@ macro_rules! player_or_bullet {
 /// Part of the **world_state** message, as defined by [Protocol spec](https://github.com/LoungeCPP/Tatsoryk/wiki/Protocol-spec).")]
         #[derive(Copy, Clone, Debug, PartialEq)]
         pub struct $name {
-            id: u32,
-            x: f32,
-            y: f32,
-            move_x: Option<f32>,
-            move_y: Option<f32>,
+            pub id: u32,
+            pub x: f32,
+            pub y: f32,
+            pub move_x: Option<f32>,
+            pub move_y: Option<f32>,
         }
 
         impl $name {
