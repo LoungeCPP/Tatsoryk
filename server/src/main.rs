@@ -12,29 +12,19 @@
 
 extern crate serde_json;
 extern crate serde;
+extern crate clap;
 
+mod options;
 pub mod message;
 
-use std::env;
-use std::vec::Vec;
+pub use options::Options;
 
-fn listen(host: &str, port: i32) {
+fn listen(host: &str, port: u16) {
     println!("Listening on {}:{}", host, port);
     // TODO actually listen
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let mut host = String::from("127.0.0.1");
-    let mut port = 8080;
-
-    if args.len() >= 2 {
-        host = args[1].clone();
-    }
-
-    if args.len() >= 3 {
-        port = args[2].parse::<i32>().unwrap();
-    }
-
-    listen(&host, port);
+    let opts = Options::parse();
+    listen(&opts.host, opts.port);
 }
