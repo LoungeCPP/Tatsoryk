@@ -21,5 +21,3 @@ WebSocket is exposed as `ws://localhost:8000/ws/` (the server itself should be l
 served from `/vagrant/client`.
 
 For Rust there is multirust and newest stable Rust installed.
-
-For C++ side of things there is Clang 3.8, ninja, libwebsocketpp, Boost 1.58 and ICU should Unicode support be needed.

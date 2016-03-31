@@ -7,54 +7,8 @@ matrix:
           rust: beta
         - language: rust
           rust: nightly
-        - language: python
-          python: "3.5"
-          env: CXX=g++-5 CC=gcc-5
-          addons:
-              apt:
-                  packages:
-                      - g++-5
-                      - libicu-dev
-                      - ninja-build
-                  sources: &sources
-                      - r-packages-precise
-                      - llvm-toolchain-precise
-                      - ubuntu-toolchain-r-test
-# This was failing builds (see for example https://travis-ci.org/LoungeCPP/Tatsoryk/jobs/119365368)
-#        - language: python
-#          python: "3.5"
-#          env: CXX=clang++-3.8 CC=clang-3.8
-#          addons:
-#              apt:
-#                  packages:
-#                      - clang-3.8
-#                      - libicu-dev
-#                      - ninja-build
-#                  sources: *sources
-
-install:
-    - if [ -n "$CXX" ]; then
-          pushd ~;
-          curl -SsL http://downloads.sourceforge.net/project/boost/boost/1.58.0/boost_1_58_0.tar.bz2?ts=1459198664 | tar -xjf -;
-          mv boost_1_58_0/boost .;
-          rm -rf boost_1_58_0;
-          export BOOST_DIR="$HOME/boost";
-
-          git clone https://github.com/zaphoyd/websocketpp.git --branch "0.7.0" --depth 1;
-          mv websocketpp/websocketpp wspp;
-          rm -rf websocketpp;
-          rm wspp/CMakeLists.txt;
-          mv wspp websocketpp;
-          export WEBSOCKETPP_DIR="$HOME/websocketpp";
-          popd;
-      fi
 
 script:
-    - if [ -n "$CXX" ]; then
-          cd server-cpp;
-          python3.5 configure.py;
-          ninja;
-      fi
     - if [ -n "$TRAVIS_RUST_VERSION" ]; then
           cd server;
           cargo test;
