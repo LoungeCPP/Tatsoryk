@@ -14,6 +14,5 @@
         } else {
             return vector;
         }
-
     };
 })();
