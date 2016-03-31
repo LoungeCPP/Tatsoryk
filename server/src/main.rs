@@ -22,7 +22,7 @@ pub mod events;
 pub mod server;
 pub mod gamestate;
 
-use std::sync::mpsc::channel;
+use std::sync::mpsc::{channel, self};
 use std::thread;
 use std::time::Duration;
 
@@ -36,7 +36,7 @@ use options::Options;
 /// Runs the main game loop.
 ///
 /// The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
-fn game_loop(game_messages: std::sync::mpsc::Receiver<WebSocketEvent>) {
+fn game_loop(game_messages: mpsc::Receiver<WebSocketEvent>) {
     let mut game_state = GameState::new();
 
     let start_time = time::precise_time_ns();

@@ -11,9 +11,10 @@ use std;
 use message;
 
 use websocket::message::Type;
-use websocket::{Server, Message, Sender, Receiver};
+use websocket::{Server, Message};
 use websocket::server::Connection;
 use websocket::stream::WebSocketStream;
+use std::sync::mpsc;
 
 use std::str::FromStr;
 
@@ -39,7 +40,7 @@ impl From<websocket::result::WebSocketError> for AllErrors {
 }
 
 /// Constantly send messages over the websocket.
-fn websocket_send_loop<S: Sender>(rx: std::sync::mpsc::Receiver<Option<String>>,
+fn websocket_send_loop<S: websocket::Sender>(rx: mpsc::Receiver<Option<String>>,
                                   mut sender: S)
                                   -> Result<(), AllErrors> {
     for message in rx {
@@ -65,7 +66,7 @@ fn websocket_send_loop<S: Sender>(rx: std::sync::mpsc::Receiver<Option<String>>,
 /// And one which forever reads from a websocket and sends the stuff to the game loop via a channel.
 fn handle_connection(id: u32,
                      connection: std::io::Result<Connection<WebSocketStream, WebSocketStream>>,
-                     game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>)
+                     game_messages_sender: mpsc::Sender<WebSocketEvent>)
                      -> Result<(), AllErrors> {
     let request = try!(connection.unwrap().read_request()); // Get the request
 
@@ -134,7 +135,7 @@ fn handle_connection(id: u32,
 /// The main listening loop for the server.
 pub fn listen(host: &str,
               port: u16,
-              game_messages_sender: std::sync::mpsc::Sender<WebSocketEvent>) {
+              game_messages_sender: mpsc::Sender<WebSocketEvent>) {
     println!("Listening on {}:{}", host, port);
     let server = Server::bind((host, port)).unwrap();
 

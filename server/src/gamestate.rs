@@ -4,6 +4,7 @@ use message;
 
 use std;
 use std::collections::HashMap;
+use std::sync::mpsc;
 
 use std::vec::Vec;
 
@@ -76,7 +77,7 @@ impl GameState {
 
     /// Tries to process every available websocket event without blocking.
     pub fn process_websocket_events(&mut self,
-                                    game_messages: &std::sync::mpsc::Receiver<WebSocketEvent>) {
+                                    game_messages: &mpsc::Receiver<WebSocketEvent>) {
         loop {
             match game_messages.try_recv() {
                 Ok(a) => self.process_websocket_event(a),
