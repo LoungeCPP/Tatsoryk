@@ -49,7 +49,8 @@ fn game_loop(game_messages: mpsc::Receiver<WebSocketEvent>) {
         game_state.send_state_updates();
 
         // Sleep if needed to the next update
-        let time_till_next = ((iter * ITER_LENGTH) as i64) - ((time::precise_time_ns() - start_time) as i64);
+        let time_till_next = ((iter * ITER_LENGTH) as i64) -
+                             ((time::precise_time_ns() - start_time) as i64);
         iter += 1;
         if time_till_next > 0 {
             thread::sleep(Duration::new(0, time_till_next as u32));

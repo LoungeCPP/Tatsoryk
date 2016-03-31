@@ -2,7 +2,6 @@
 
 use message;
 
-use std;
 use std::collections::HashMap;
 use std::sync::mpsc;
 
@@ -31,28 +30,33 @@ impl GameState {
         }
     }
 
-    /// Serialize the entire game state into one json string.
-    fn serialize(&self) -> String {
-        let players: Vec<message::Player> = Vec::from_iter(self.players
-                                                               .values()
-                                                               .map(|a| a.clone()));
-        let state = message::Message::WorldState {
-            player_count: players.len() as u32,
-            alive_players: players,
-            alive_bullets: Vec::new(),
-        };
-        state.to_string()
+    /// Tries to process every available websocket event without blocking.
+    pub fn process_websocket_events(&mut self, game_messages: &mpsc::Receiver<WebSocketEvent>) {
+        loop {
+            match game_messages.try_recv() {
+                Ok(message) => self.process_websocket_event(message),
+                Err(mpsc::TryRecvError::Empty) => return,
+                Err(mpsc::TryRecvError::Disconnected) => panic!("Now I am disconnected?"),
+            }
+        }
     }
 
-    /// Process a simple string message from the client.
-    fn process_client_message(&mut self, client_id: u32, message: message::Message) {
-        match message {
-            message::Message::StartMoving { move_x, move_y } => {
-                let player = self.players.get_mut(&client_id).unwrap();
-                player.move_x = Some(move_x);
-                player.move_y = Some(move_y);
-            }
-            _ => panic!("Unprocessed message! {}", message.to_string()),
+    /// Updates the game state in one tick.
+    pub fn process_game_update(&mut self) {
+        for (_, player) in &mut self.players {
+            player.x += player.move_x.unwrap_or(0.0);
+            player.y += player.move_y.unwrap_or(0.0);
+        }
+    }
+
+    /// Send the current state to each client.
+    pub fn send_state_updates(&self) {
+        let value = self.serialize();
+
+        for (_, client) in &self.clients {
+            // Always ignore if the send fails.
+            // We will eventually get a disconnect WebSocketMessage where we will cleanly do the disconnect.
+            let _ = client.send(value.clone());
         }
     }
 
@@ -75,39 +79,28 @@ impl GameState {
         }
     }
 
-    /// Tries to process every available websocket event without blocking.
-    pub fn process_websocket_events(&mut self, game_messages: &mpsc::Receiver<WebSocketEvent>) {
-        loop {
-            match game_messages.try_recv() {
-                Ok(a) => self.process_websocket_event(a),
-                Err(e) => {
-                    match e {
-                        std::sync::mpsc::TryRecvError::Empty => return,
-                        std::sync::mpsc::TryRecvError::Disconnected => {
-                            panic!("Now I am disconnected?")
-                        }
-                    }
-                }
+    /// Serialize the entire game state into one json string.
+    fn serialize(&self) -> String {
+        let players = Vec::from_iter(self.players
+                                         .values()
+                                         .map(Clone::clone));
+        let state = message::Message::WorldState {
+            player_count: players.len() as u32,
+            alive_players: players,
+            alive_bullets: Vec::new(),
+        };
+        state.to_string()
+    }
+
+    /// Process a simple string message from the client.
+    fn process_client_message(&mut self, client_id: u32, message: message::Message) {
+        match message {
+            message::Message::StartMoving { move_x, move_y } => {
+                let player = self.players.get_mut(&client_id).unwrap();
+                player.move_x = Some(move_x);
+                player.move_y = Some(move_y);
             }
-        }
-    }
-
-    /// Updates the game state in one tick.
-    pub fn process_game_update(&mut self) {
-        for (_, player) in &mut self.players {
-            player.x += player.move_x.unwrap_or(0.0);
-            player.y += player.move_y.unwrap_or(0.0);
-        }
-    }
-
-    /// Send the current state to each client.
-    pub fn send_state_updates(&self) {
-        let value = self.serialize();
-
-        for (_, client) in &self.clients {
-            // Always ignore if the send fails.
-            // We will eventually get a disconnect WebSocketMessage where we will cleanly do the disconnect.
-            let _ = client.send(value.clone());
+            _ => panic!("Unprocessed message! {}", message.to_string()),
         }
     }
 }
