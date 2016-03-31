@@ -15,7 +15,7 @@ pub struct Client {
     /// The unique id for the client.
     pub id: u32,
 
-    /// 'sender' is a channel which allows you to send messages to the corresponding websocket.
+    /// Channel which allows you to send messages to the corresponding websocket.
     ///
     /// Send a None to close the websocket. (Some(data) for a normal message).
     sender: Sender<Option<String>>,

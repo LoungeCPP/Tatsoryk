@@ -64,11 +64,9 @@ impl GameState {
     fn process_websocket_event(&mut self, message: WebSocketEvent) {
         match message {
             WebSocketEvent::ClientCreated { client } => {
-                let _ = self.players.insert(client.id.clone(),
-                                            message::Player::not_moving(client.id.clone(),
-                                                                        0.0,
-                                                                        0.0));
-                let _ = self.clients.insert(client.id.clone(), client);
+                let _ = self.players
+                            .insert(client.id, message::Player::not_moving(client.id, 0.0, 0.0));
+                let _ = self.clients.insert(client.id, client);
             }
             WebSocketEvent::ClientClosed { client_id } => {
                 let _ = self.clients.remove(&client_id);
