@@ -11,7 +11,7 @@ use std;
 use message;
 
 use websocket::message::Type;
-use websocket::{Server, Message};
+use websocket::{Server, Message, Receiver};
 use websocket::server::Connection;
 use websocket::stream::WebSocketStream;
 use std::sync::mpsc;

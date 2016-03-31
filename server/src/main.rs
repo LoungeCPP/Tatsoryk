@@ -63,7 +63,7 @@ fn main() {
     let opts = Options::parse();
 
     // Create the channel which will allow the game loop to recieve messages.
-    let (tx, rx) = channel::<WebSocketEvent>();
+    let (tx, rx) = channel();
 
     let _ = thread::spawn(move || {
         game_loop(rx);
