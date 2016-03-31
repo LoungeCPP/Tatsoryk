@@ -23,7 +23,7 @@ pub struct GameState {
 }
 
 impl GameState {
-    // Create a new game state.
+    /// Create a new game state.
     pub fn new() -> GameState {
         GameState {
             players: HashMap::new(),
@@ -76,8 +76,7 @@ impl GameState {
     }
 
     /// Tries to process every available websocket event without blocking.
-    pub fn process_websocket_events(&mut self,
-                                    game_messages: &mpsc::Receiver<WebSocketEvent>) {
+    pub fn process_websocket_events(&mut self, game_messages: &mpsc::Receiver<WebSocketEvent>) {
         loop {
             match game_messages.try_recv() {
                 Ok(a) => self.process_websocket_event(a),

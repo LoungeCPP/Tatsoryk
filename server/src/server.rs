@@ -41,8 +41,8 @@ impl From<websocket::result::WebSocketError> for AllErrors {
 
 /// Constantly send messages over the websocket.
 fn websocket_send_loop<S: websocket::Sender>(rx: mpsc::Receiver<Option<String>>,
-                                  mut sender: S)
-                                  -> Result<(), AllErrors> {
+                                             mut sender: S)
+                                             -> Result<(), AllErrors> {
     for message in rx {
         match message {
             Some(text) => {
@@ -133,9 +133,7 @@ fn handle_connection(id: u32,
 }
 
 /// The main listening loop for the server.
-pub fn listen(host: &str,
-              port: u16,
-              game_messages_sender: mpsc::Sender<WebSocketEvent>) {
+pub fn listen(host: &str, port: u16, game_messages_sender: mpsc::Sender<WebSocketEvent>) {
     println!("Listening on {}:{}", host, port);
     let server = Server::bind((host, port)).unwrap();
 
