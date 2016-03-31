@@ -108,13 +108,11 @@
             }
 
             var message = handleMessage(msg.data);
-            console.log('Socket: dispatching event %s with data %o', msg.type, message);
             self.emitEvent(msg.type, [message]);
         };
 
         var send = function(type, data) {
             var message = { type: type, data: data };
-            console.log('Socket: sending message %s with data %o', type, data);
             transport.send({ type: type, data: data });
         };
 

@@ -8,12 +8,15 @@ license = "MIT"
 version = "0.1.0"
 # Remember to also modify options.rs authors
 authors = ["nabijaczleweli <nabijaczleweli@gmail.com>",
-           "Cat Plus Plus <piotrlegnica@piotrl.pl>"]
+           "Cat Plus Plus <piotrlegnica@piotrl.pl>",
+           "Lalaland <ethan.steinberg@gmail.com"]
 
 [dependencies]
 clap = "2.2"
 serde = "0.7"
 serde_json = "0.7"
+time = "0.1"
+websocket = "0.16"
 
 [dev-dependencies]
 rand = "0.3"

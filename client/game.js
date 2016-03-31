@@ -14,6 +14,8 @@
     var lastTime = null;
     var keyboard = null;
 
+    var entities = null;
+
     //
     // Input handling
     //
@@ -24,15 +26,38 @@
     var INPUT_MOVE_RIGHT = 3;
     var INPUT_FIRE       = 4;
 
+    var keymap = {};
+
+    var updateMoving = function() {
+
+        var move_x = 0;
+        var move_y = 0;
+
+        if (keymap[INPUT_MOVE_UP]) {
+            move_y += -1;
+        }
+        if (keymap[INPUT_MOVE_DOWN]) {
+            move_y += 1;
+        }
+        if (keymap[INPUT_MOVE_LEFT]) {
+            move_x += -1;
+        }
+        if (keymap[INPUT_MOVE_RIGHT]) {
+            move_x += 1;
+        }
+
+        socket.startMoving(Game.makeVector(move_x, move_y));
+    }
+
     var onKeyDown = function(input) {
-        // TODO maintain a proper movement vector
-        socket.startMoving(Game.makeVector(0, 1));
+        keymap[input] = true;
+        updateMoving();
     };
 
     var onKeyUp = function(input) {
-        // TODO maintain a proper movement vector
-        socket.stopMoving();
-    };
+        keymap[input] = false;
+        updateMoving();
+    }
 
     var onMouseInput = function(input, x, y) {
         // TODO calculate aim vector
@@ -78,16 +103,19 @@
         unbindInput();
     };
 
-    var update = function(timeDelta) {
-        // TODO
-    };
-
     //
     // Rendering
     //
 
-    var draw = function(context, width, height, timeDelta) {
-        // TODO drawing
+    var draw = function(context, width, height) {
+        if (entities != null) {
+            for (var i = 0; i < entities.length; i++) {
+                var entity = entities[i];
+
+                context.fillStyle = 'black';
+                context.fillRect(entity.position.x, entity.position.y, 10, 10);
+            }
+        }
     };
 
     var frame = function(time) {
@@ -98,12 +126,10 @@
         var delta = time - lastTime;
         lastTime = time;
 
-        update(delta);
-
         var context = canvas.getContext('2d');
         context.save();
         context.clearRect(0, 0, canvas.width, canvas.height);
-        draw(context, canvas.width, canvas.height, delta);
+        draw(context, canvas.width, canvas.height);
         context.restore();
 
         window.requestAnimationFrame(frame);
@@ -114,7 +140,7 @@
     //
 
     var handleWelcome = function(msg) {
-        // TODO do stuff~
+
     };
 
     var handleGoAway = function(msg) {
@@ -151,6 +177,7 @@
 
     var handleWorldState = function(msg) {
         // TODO do stuff~
+        entities = msg.alivePlayers;
     };
 
     var connect = function(address) {
@@ -205,8 +232,7 @@
 
         document.getElementById('connect').addEventListener('click', onConnectClick);
         document.getElementById('disconnect').addEventListener('click', onDisconnectClick);
-
-        // TODO maybe figure out good way to fill available viewport
+        // TODO maybe figure out godo way to fill available viewport
 
         window.requestAnimationFrame(frame);
     };

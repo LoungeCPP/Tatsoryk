@@ -59,7 +59,6 @@
 
             socket.onmessage = function(e) {
                 var message = JSON.parse(e.data);
-                console.log('WSTransport: received %o', message);
                 self.emitEvent('message', [message]);
             };
 
@@ -91,7 +90,6 @@
                 return;
             }
 
-            console.log('WSTransport: sending %o', message);
             var frame = JSON.stringify(message);
             socket.send(frame);
         };

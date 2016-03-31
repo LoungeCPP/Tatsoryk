@@ -9,6 +9,11 @@
 
     Game.normVector = function(vector) {
         var magnitude = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
-        return Game.makeVector(vector.x / magnitude, vector.y / magnitude);
+        if (magnitude != 0) {
+            return Game.makeVector(vector.x / magnitude, vector.y / magnitude);
+        } else {
+            return vector;
+        }
+
     };
 })();
