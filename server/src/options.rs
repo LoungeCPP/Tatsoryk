@@ -17,7 +17,8 @@ impl Options {
         let matches = App::new("tatsoryk-server")
                           .version(env!("CARGO_PKG_VERSION"))
                           .author("nabijaczleweli <nabijaczleweli@gmail.com>,\n\
-                                   Cat Plus Plus <piotrlegnica@piotrl.pl>")
+                                   Cat Plus Plus <piotrlegnica@piotrl.pl>\n\
+                                   Lalaland <ethan.steinberg@gmail.com>")
                           .about("Implementation of the server for Tatsoryk")
                           .args_from_usage(USAGE)
                           .arg(Arg::from_usage("[port] 'Port on the host to connect to. \
