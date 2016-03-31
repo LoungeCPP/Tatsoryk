@@ -5,11 +5,12 @@
 //! This file defines the common data formats for those channels.
 
 use std::sync::mpsc::{Sender, SendError};
-use std;
+use std::fmt;
 
 use message;
 
 /// This represents a single websocket connected to the game.
+#[derive(Clone)]
 pub struct Client {
     /// The unique id for the client.
     pub id: u32,
@@ -21,7 +22,7 @@ pub struct Client {
 }
 
 impl Client {
-    /// / Create a new client from a given id and sender channel.
+    /// Create a new client from a given id and sender channel.
     pub fn new(id: u32, sender: Sender<Option<String>>) -> Client {
         Client {
             id: id,
@@ -40,8 +41,8 @@ impl Client {
     }
 }
 
-impl std::fmt::Debug for Client {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Debug for Client {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Client {}", self.id)
     }
 }
@@ -50,7 +51,7 @@ impl std::fmt::Debug for Client {
 ///
 /// Right now, we have clients connecting, disconnecting, and sending messages.
 /// This is the place where we would add additional stuff like say, unix signals.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WebSocketEvent {
     ClientCreated {
         client: Client,
