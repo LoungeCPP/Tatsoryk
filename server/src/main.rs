@@ -10,26 +10,28 @@
     unused_results,
 )]
 
+extern crate clap;
+extern crate serde;
+extern crate serde_json;
+extern crate time;
+extern crate websocket;
+
+mod options;
 pub mod message;
 pub mod events;
 pub mod server;
 pub mod gamestate;
 
-extern crate time;
-extern crate websocket;
-extern crate serde;
-extern crate serde_json;
-
-use std::env;
 use std::sync::mpsc::channel;
 use std::thread;
 use std::time::Duration;
-use std::vec::Vec;
 
 use events::WebSocketEvent;
 
 use server::listen;
 use gamestate::GameState;
+
+use options::Options;
 
 /// Runs the main game loop.
 ///
@@ -58,17 +60,7 @@ fn game_loop(game_messages: std::sync::mpsc::Receiver<WebSocketEvent>) {
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let mut host = String::from("127.0.0.1");
-    let mut port = 8080;
-
-    if args.len() >= 2 {
-        host = args[1].clone();
-    }
-
-    if args.len() >= 3 {
-        port = args[2].parse::<u16>().unwrap();
-    }
+    let opts = Options::parse();
 
     // Create the channel which will allow the game loop to recieve messages.
     let (tx, rx) = channel::<WebSocketEvent>();
@@ -77,5 +69,5 @@ fn main() {
         game_loop(rx);
     });
 
-    listen(&host, port, tx);
+    listen(&opts.host, opts.port, tx);
 }
