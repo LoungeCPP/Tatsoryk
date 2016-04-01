@@ -36,10 +36,10 @@ use options::Options;
 /// Runs the main game loop.
 ///
 /// The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
-fn game_loop(game_messages: mpsc::Receiver<WebSocketEvent>) {
+fn game_loop(game_messages: mpsc::Receiver<WebSocketEvent>, player_size: f32, bullet_size: f32) {
     static ITER_LENGTH: u64 = 16 * 1000000; // 16 milliseconds
 
-    let mut game_state = GameState::new();
+    let mut game_state = GameState::new(player_size, bullet_size);
 
     let start_time = time::precise_time_ns();
     let mut iter: u64 = 1;
@@ -64,9 +64,13 @@ fn main() {
     // Create the channel which will allow the game loop to recieve messages.
     let (tx, rx) = channel();
 
-    let _ = thread::spawn(move || {
-        game_loop(rx);
-    });
+    {
+        let player_size = opts.player_size;
+        let bullet_size = opts.bullet_size;
+        let _ = thread::spawn(move || {
+            game_loop(rx, player_size, bullet_size);
+        });
+    }
 
     listen(&opts.host, opts.port, tx);
 }

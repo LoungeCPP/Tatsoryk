@@ -12,9 +12,6 @@ use std::iter::FromIterator;
 use events::Client;
 use events::WebSocketEvent;
 
-static BULLET_RADIUS: f32 = 5.0;
-static PLAYER_RADIUS: f32 = 10.0;
-
 /// The GameState contains the whole state of the game.
 ///
 /// It consists of both players, and all the clients which are currently connected.
@@ -24,16 +21,20 @@ pub struct GameState {
     bullets: HashMap<u32, message::Bullet>,
     clients: HashMap<u32, Client>,
     next_bullet_id: u32,
+    player_radius: f32,
+    bullet_radius: f32,
 }
 
 impl GameState {
     /// Create a new game state.
-    pub fn new() -> GameState {
+    pub fn new(player_size: f32, bullet_size: f32) -> GameState {
         GameState {
             players: HashMap::new(),
             bullets: HashMap::new(),
             clients: HashMap::new(),
             next_bullet_id: 0,
+            player_radius: player_size,
+            bullet_radius: bullet_size,
         }
     }
 
@@ -75,7 +76,7 @@ impl GameState {
                 let dx = bullet.x - player.x;
                 let dy = bullet.y - player.y;
                 let dist = (dx * dx + dy * dy).sqrt();
-                if dist < BULLET_RADIUS + PLAYER_RADIUS {
+                if dist < self.bullet_radius + self.player_radius {
                     destroyed_bullets.push(bullet.id);
                     destroyed_players.push(player.id);
                 }
@@ -113,9 +114,9 @@ impl GameState {
                 let welcome_message = message::Message::Welcome {
                     id: client.id,
                     speed: 0.0,
-                    size: PLAYER_RADIUS,
+                    size: self.player_radius,
                     bullet_speed: 0.0,
-                    bullet_size: BULLET_RADIUS,
+                    bullet_size: self.bullet_radius,
                 };
 
                 let _ = client.send(welcome_message.to_string());
@@ -168,8 +169,8 @@ impl GameState {
                 let player = self.players.get(&client_id).unwrap();
 
                 // Have to move the bullet out of the way of the player to avoid an instant collision.
-                let start_x = player.x + move_x * (BULLET_RADIUS + PLAYER_RADIUS + 1.0);
-                let start_y = player.y + move_y * (BULLET_RADIUS + PLAYER_RADIUS + 1.0);
+                let start_x = player.x + move_x * (self.bullet_radius + self.player_radius + 1.0);
+                let start_y = player.y + move_y * (self.bullet_radius + self.player_radius + 1.0);
 
                 let _ = self.bullets.insert(self.next_bullet_id,
                                             message::Bullet::moving(self.next_bullet_id,
