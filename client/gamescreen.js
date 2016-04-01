@@ -43,7 +43,7 @@
                 move_x += 1;
             }
 
-            if move_x === 0 && move_y === 0 {
+            if (move_x === 0 && move_y === 0) {
                 socket.stopMoving();
             } else {
                 socket.startMoving(Game.makeVector(move_x, move_y));
