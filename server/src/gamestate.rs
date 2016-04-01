@@ -12,13 +12,18 @@ use std::iter::FromIterator;
 use events::Client;
 use events::WebSocketEvent;
 
+static BULLET_RADIUS: f32 = 5.0;
+static PLAYER_RADIUS: f32 = 10.0;
+
 /// The GameState contains the whole state of the game.
 ///
 /// It consists of both players, and all the clients which are currently connected.
 #[derive(Debug)]
 pub struct GameState {
     players: HashMap<u32, message::Player>,
+    bullets: HashMap<u32, message::Bullet>,
     clients: HashMap<u32, Client>,
+    next_bullet_id: u32,
 }
 
 impl GameState {
@@ -26,7 +31,9 @@ impl GameState {
     pub fn new() -> GameState {
         GameState {
             players: HashMap::new(),
+            bullets: HashMap::new(),
             clients: HashMap::new(),
+            next_bullet_id: 0,
         }
     }
 
@@ -43,9 +50,48 @@ impl GameState {
 
     /// Updates the game state in one tick.
     pub fn process_game_update(&mut self) {
+        // Do a normal position update
         for (_, player) in &mut self.players {
             player.x += player.move_x.unwrap_or(0.0);
             player.y += player.move_y.unwrap_or(0.0);
+        }
+
+        let mut destroyed_bullets = Vec::new();
+        let mut destroyed_players = Vec::new();
+
+        for (_, bullet) in &mut self.bullets {
+            bullet.x += bullet.move_x.unwrap_or(0.0);
+            bullet.y += bullet.move_y.unwrap_or(0.0);
+
+            // Hardcoded map boundaries
+            if bullet.x < 0.0 || bullet.x > 500.0 || bullet.y < 0.0 || bullet.y > 500.0 {
+                destroyed_bullets.push(bullet.id);
+            }
+        }
+
+        // Check for collisions
+        for (_, bullet) in &mut self.bullets {
+            for (_, player) in &mut self.players {
+                let dx = bullet.x - player.x;
+                let dy = bullet.y - player.y;
+                let dist = (dx * dx + dy * dy).sqrt();
+                if dist < BULLET_RADIUS + PLAYER_RADIUS {
+                    destroyed_bullets.push(bullet.id);
+                    destroyed_players.push(player.id);
+                }
+            }
+        }
+
+        // Process destroy requests
+        for bullet_id in destroyed_bullets {
+            let _ = self.bullets.remove(&bullet_id);
+        }
+
+        for player_id in destroyed_players {
+            let dead_player = self.players.get_mut(&player_id).unwrap();
+            // Respawn the player at 50, 50
+            dead_player.x = 50.0;
+            dead_player.y = 50.0;
         }
     }
 
@@ -64,8 +110,20 @@ impl GameState {
     fn process_websocket_event(&mut self, message: WebSocketEvent) {
         match message {
             WebSocketEvent::ClientCreated { client } => {
+                let welcome_message = message::Message::Welcome {
+                    id: client.id,
+                    speed: 0.0,
+                    size: PLAYER_RADIUS,
+                    bullet_speed: 0.0,
+                    bullet_size: BULLET_RADIUS,
+                };
+
+                let _ = client.send(welcome_message.to_string());
+                let _ = client.send(self.serialize());
+
                 let _ = self.players
                             .insert(client.id, message::Player::not_moving(client.id, 0.0, 0.0));
+
                 let _ = self.clients.insert(client.id, client);
             }
             WebSocketEvent::ClientClosed { client_id } => {
@@ -82,10 +140,13 @@ impl GameState {
         let players = Vec::from_iter(self.players
                                          .values()
                                          .map(Clone::clone));
+        let bullets = Vec::from_iter(self.bullets
+                                         .values()
+                                         .map(Clone::clone));
         let state = message::Message::WorldState {
             player_count: players.len() as u32,
             alive_players: players,
-            alive_bullets: Vec::new(),
+            alive_bullets: bullets,
         };
         state.to_string()
     }
@@ -97,6 +158,27 @@ impl GameState {
                 let player = self.players.get_mut(&client_id).unwrap();
                 player.move_x = Some(move_x);
                 player.move_y = Some(move_y);
+            }
+            message::Message::StopMoving => {
+                let player = self.players.get_mut(&client_id).unwrap();
+                player.move_x = None;
+                player.move_y = None;
+            }
+            message::Message::Fire { move_x, move_y } => {
+                let player = self.players.get(&client_id).unwrap();
+
+                // Have to move the bullet out of the way of the player to avoid an instant collision.
+                let start_x = player.x + move_x * (BULLET_RADIUS + PLAYER_RADIUS + 1.0);
+                let start_y = player.y + move_y * (BULLET_RADIUS + PLAYER_RADIUS + 1.0);
+
+                let _ = self.bullets.insert(self.next_bullet_id,
+                                            message::Bullet::moving(self.next_bullet_id,
+                                                                    start_x,
+                                                                    start_y,
+                                                                    move_x,
+                                                                    move_y));
+
+                self.next_bullet_id += 1;
             }
             _ => panic!("Unprocessed message! {}", message.to_string()),
         }

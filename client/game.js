@@ -14,72 +14,44 @@
     var lastTime = null;
     var keyboard = null;
 
-    var entities = null;
-
     //
     // Input handling
-    //
 
-    var INPUT_MOVE_UP    = 0;
-    var INPUT_MOVE_DOWN  = 1;
-    var INPUT_MOVE_LEFT  = 2;
-    var INPUT_MOVE_RIGHT = 3;
-    var INPUT_FIRE       = 4;
+    var game = null;
 
-    var keymap = {};
-
-    var updateMoving = function() {
-
-        var move_x = 0;
-        var move_y = 0;
-
-        if (keymap[INPUT_MOVE_UP]) {
-            move_y += -1;
+    // Get the mouse coords relative to the canvas
+    var getRelativeMouseCords = function(event) {
+        var rect = canvas.getBoundingClientRect();
+        var borderWidth = 1;
+        return {
+            x: event.clientX - rect.left - borderWidth,
+            y: event.clientY - rect.top - borderWidth,
         }
-        if (keymap[INPUT_MOVE_DOWN]) {
-            move_y += 1;
-        }
-        if (keymap[INPUT_MOVE_LEFT]) {
-            move_x += -1;
-        }
-        if (keymap[INPUT_MOVE_RIGHT]) {
-            move_x += 1;
-        }
-
-        socket.startMoving(Game.makeVector(move_x, move_y));
-    }
-
-    var onKeyDown = function(input) {
-        keymap[input] = true;
-        updateMoving();
     };
 
-    var onKeyUp = function(input) {
-        keymap[input] = false;
-        updateMoving();
+    var processMouseDown = function(event) {
+        var coords = getRelativeMouseCords(event);
+        game.onMouseClick(coords.x, coords.y, Game.INPUT_FIRE);
     }
-
-    var onMouseInput = function(input, x, y) {
-        // TODO calculate aim vector
-        socket.fire(Game.makeVector(1, 1));
-    };
 
     var bindInput = function() {
         var bind = function(key, input) {
             keyboard.register_combo({
                 keys:            key,
-                on_keydown:      onKeyDown.bind(null, input),
-                on_keyup:        onKeyUp.bind(null, input),
+                on_keydown:      game.onKeyDown.bind(game, input),
+                on_keyup:        game.onKeyUp.bind(game, input),
                 prevent_default: true,
                 prevent_repeat:  true,
             });
         };
 
         keyboard = new window.keypress.Listener();
-        bind('w', INPUT_MOVE_UP);
-        bind('s', INPUT_MOVE_DOWN);
-        bind('a', INPUT_MOVE_LEFT);
-        bind('d', INPUT_MOVE_RIGHT);
+        bind('w', Game.INPUT_MOVE_UP);
+        bind('s', Game.INPUT_MOVE_DOWN);
+        bind('a', Game.INPUT_MOVE_LEFT);
+        bind('d', Game.INPUT_MOVE_RIGHT);
+
+        canvas.addEventListener('mousedown', processMouseDown);
     };
 
     var unbindInput = function() {
@@ -87,14 +59,19 @@
             keyboard.reset();
         }
         keyboard = null;
+        canvas.removeEventListener('mousedown', processMouseDown);
     };
 
     //
     // Game logic
     //
 
-    var setupGame = function() {
+    // Create the game given a welcome message and an initial state.
+    // Welcome must be a welcome message.
+    // initialState must be a world state message.
+    var setupGame = function(welcome, initialState) {
         // TODO
+        game = new Game.GameScreen(welcome.id, welcome.size, welcome.bulletSize, initialState, socket);
         bindInput();
     };
 
@@ -107,17 +84,6 @@
     // Rendering
     //
 
-    var draw = function(context, width, height) {
-        if (entities != null) {
-            for (var i = 0; i < entities.length; i++) {
-                var entity = entities[i];
-
-                context.fillStyle = 'black';
-                context.fillRect(entity.position.x, entity.position.y, 10, 10);
-            }
-        }
-    };
-
     var frame = function(time) {
         if (lastTime === null) {
             lastTime = time;
@@ -129,7 +95,11 @@
         var context = canvas.getContext('2d');
         context.save();
         context.clearRect(0, 0, canvas.width, canvas.height);
-        draw(context, canvas.width, canvas.height);
+
+        if (game != null) {
+            game.draw(context);
+        }
+
         context.restore();
 
         window.requestAnimationFrame(frame);
@@ -139,8 +109,14 @@
     // Networking
     //
 
-    var handleWelcome = function(msg) {
+    var welcomeMessage = null;
 
+    // One issue is that a welcome message is not sufficient to start a game.
+    // We need a world state message as well.
+    // So we just hold onto our welcome message if we get one at the start.
+    // TODO: Add an initial state field into the welcome message.
+    var handleWelcome = function(msg) {
+        welcomeMessage = msg;
     };
 
     var handleGoAway = function(msg) {
@@ -176,13 +152,18 @@
     };
 
     var handleWorldState = function(msg) {
-        // TODO do stuff~
-        entities = msg.alivePlayers;
+        // If the game isn't created yet, create it now.
+        if (game == null) {
+            console.assert(welcomeMessage != null, 'Must have gotten a welcome message before a world state message');
+            setupGame(welcomeMessage, msg);
+        } else {
+            game.updateState(msg);
+        }
     };
 
     var connect = function(address) {
         transport = new Game.WSTransport(address);
-        transport.addListener('connect',    setupGame);
+        transport.addListener('connect',    function(){}); // We don't do anything on connect.
         transport.addListener('disconnect', stopGame);
 
         socket = new Game.Socket(transport);
