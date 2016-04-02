@@ -100,16 +100,15 @@ fn handle_connection(id: u32,
                      connection: io::Result<Connection<WebSocketStream, WebSocketStream>>,
                      game_messages_sender: mpsc::Sender<WebSocketEvent>)
                      -> Result<(), ServerError> {
-    let request = try!(connection.unwrap().read_request()); // Get the request
+    let request = try!(try!(connection).read_request()); // Get the request
 
     try!(request.validate()); // Validate the request
     let response = request.accept(); // Form a response
     let mut client = try!(response.send()); // Send the response
 
-    let ip = client.get_mut_sender()
+    let ip = try!(client.get_mut_sender()
                    .get_mut()
-                   .peer_addr()
-                   .unwrap();
+                   .peer_addr());
 
     println!("Connection from {}", id);
 
