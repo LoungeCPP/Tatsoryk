@@ -5,10 +5,6 @@ use message;
 use std::collections::HashMap;
 use std::sync::mpsc;
 
-use std::vec::Vec;
-
-use std::iter::FromIterator;
-
 use math::distance_between;
 use rand::{thread_rng, Rng};
 
@@ -142,12 +138,14 @@ impl GameState {
 
     /// Serialize the entire game state into one json string.
     fn serialize(&self) -> String {
-        let players = Vec::from_iter(self.players
-                                         .values()
-                                         .map(Clone::clone));
-        let bullets = Vec::from_iter(self.bullets
-                                         .values()
-                                         .map(Clone::clone));
+        let players: Vec<_> = self.players
+                                  .values()
+                                  .cloned()
+                                  .collect();
+        let bullets: Vec<_> = self.bullets
+                                  .values()
+                                  .cloned()
+                                  .collect();
         let state = message::Message::WorldState {
             player_count: players.len() as u32,
             alive_players: players,
