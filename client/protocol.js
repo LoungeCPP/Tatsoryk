@@ -43,15 +43,15 @@
             return {
                 id: msg.id,
                 bulletID: msg.bullet_id,
-                position: Game.makeVector(msg.x, msg.y),
-                aim: Game.makeVector(msg.aim_x, msg.aim_y),
+                position: new Victor(msg.x, msg.y),
+                aim: new Victor(msg.aim_x, msg.aim_y),
             };
         };
 
         messages.player_spawned = function(msg) {
             return {
                 id: msg.id,
-                position: Game.makeVector(msg.x, msg.y),
+                position: new Victor(msg.x, msg.y),
             };
         };
 
@@ -66,15 +66,15 @@
         messages.player_moving = function(msg) {
             return {
                 id: msg.id,
-                position: Game.makeVector(msg.x, msg.y),
-                direction: Game.makeVector(msg.move_x, msg.move_y),
+                position: new Victor(msg.x, msg.y),
+                direction: new Victor(msg.move_x, msg.move_y),
             };
         };
 
         messages.player_stopped = function(msg) {
             return {
                 id: msg.id,
-                position: Game.makeVector(msg.x, msg.y),
+                position: new Victor(msg.x, msg.y),
             };
         };
 
@@ -82,11 +82,11 @@
             var entityMap = function(entity) {
                 var result = {
                     id: entity.id,
-                    position: Game.makeVector(entity.x, entity.y),
+                    position: new Victor(entity.x, entity.y),
                 };
 
                 if (entity.move_x !== undefined && entity.move_y !== undefined) {
-                    result.direction = Game.makeVector(entity.move_x, entity.move_y);
+                    result.direction = new Victor(entity.move_x, entity.move_y);
                 }
 
                 return result;
@@ -117,7 +117,7 @@
         };
 
         self.startMoving = function(moveVector) {
-            moveVector = Game.normVector(moveVector);
+            moveVector = moveVector.norm();
             send('start_moving', { move_x: moveVector.x, move_y: moveVector.y });
         };
 
@@ -126,7 +126,7 @@
         };
 
         self.fire = function(aimVector) {
-            aimVector = Game.normVector(aimVector);
+            aimVector = aimVector.norm();
             // TODO spec: rename to aim_x, aim_y
             send('fire', { move_x: aimVector.x, move_y: aimVector.y });
         };
