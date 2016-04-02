@@ -46,7 +46,7 @@
             if (move_x === 0 && move_y === 0) {
                 socket.stopMoving();
             } else {
-                socket.startMoving(Game.makeVector(move_x, move_y));
+                socket.startMoving(new Victor(move_x, move_y));
             }
         };
 
@@ -62,7 +62,7 @@
             var dy = y - player.position.y;
 
 
-            socket.fire(Game.makeVector(dx, dy));
+            socket.fire(new Victor(dx, dy));
         }
 
         // Process a key down event
