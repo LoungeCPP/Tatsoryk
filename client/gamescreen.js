@@ -94,7 +94,7 @@
                 if (curPlayer) {
                     context.strokeStyle = 'rgba(255, 0, 0, 0.1)';
                     context.beginPath();
-                    context.moveTo(curPlayerPos.position.x, curPlayerPos.position.y);
+                    context.moveTo(curPlayer.position.x, curPlayer.position.y);
                     context.lineTo(mousePos.x, mousePos.y);
                     context.stroke();
                     context.strokeStyle = 'black';
