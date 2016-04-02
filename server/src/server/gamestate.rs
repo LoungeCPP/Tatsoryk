@@ -131,6 +131,7 @@ impl GameState {
                 let _ = self.clients.insert(client.id, client);
             }
             WebSocketEvent::ClientClosed { client_id } => {
+                let _ = self.players.remove(&client_id);
                 let _ = self.clients.remove(&client_id);
             }
             WebSocketEvent::ClientMessage { client_id, message } => {
