@@ -107,8 +107,8 @@ fn handle_connection(id: u32,
     let mut client = try!(response.send()); // Send the response
 
     let ip = try!(client.get_mut_sender()
-                   .get_mut()
-                   .peer_addr());
+                        .get_mut()
+                        .peer_addr());
 
     println!("Connection from {} with id {}", ip, id);
 
