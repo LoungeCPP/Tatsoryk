@@ -9,13 +9,18 @@ use std::vec::Vec;
 
 use std::iter::FromIterator;
 
-use events::Client;
-use events::WebSocketEvent;
+use math::distance_between;
+use rand::{thread_rng, Rng};
+
+use self::super::Client;
+use self::super::WebSocketEvent;
 
 static BULLET_RADIUS: f32 = 5.0;
 static PLAYER_RADIUS: f32 = 10.0;
+static MAP_WIDTH: f32 = 500.0;
+static MAP_HEIGHT: f32 = 500.0;
 
-/// The GameState contains the whole state of the game.
+/// The `GameState` contains the whole state of the game.
 ///
 /// It consists of both players, and all the clients which are currently connected.
 #[derive(Debug)]
@@ -63,8 +68,7 @@ impl GameState {
             bullet.x += bullet.move_x.unwrap_or(0.0);
             bullet.y += bullet.move_y.unwrap_or(0.0);
 
-            // Hardcoded map boundaries
-            if bullet.x < 0.0 || bullet.x > 500.0 || bullet.y < 0.0 || bullet.y > 500.0 {
+            if bullet.x < 0.0 || bullet.x > MAP_WIDTH || bullet.y < 0.0 || bullet.y > MAP_HEIGHT {
                 destroyed_bullets.push(bullet.id);
             }
         }
@@ -72,10 +76,8 @@ impl GameState {
         // Check for collisions
         for (_, bullet) in &mut self.bullets {
             for (_, player) in &mut self.players {
-                let dx = bullet.x - player.x;
-                let dy = bullet.y - player.y;
-                let dist = (dx * dx + dy * dy).sqrt();
-                if dist < BULLET_RADIUS + PLAYER_RADIUS {
+                if distance_between(bullet.x, bullet.y, player.x, player.y) <
+                   BULLET_RADIUS + PLAYER_RADIUS {
                     destroyed_bullets.push(bullet.id);
                     destroyed_players.push(player.id);
                 }
@@ -87,11 +89,12 @@ impl GameState {
             let _ = self.bullets.remove(&bullet_id);
         }
 
+        let mut rng = thread_rng();
         for player_id in destroyed_players {
+            let (new_x, new_y) = self.random_free_spot(&mut rng);
             let dead_player = self.players.get_mut(&player_id).unwrap();
-            // Respawn the player at 50, 50
-            dead_player.x = 50.0;
-            dead_player.y = 50.0;
+            dead_player.x = new_x;
+            dead_player.y = new_y;
         }
     }
 
@@ -121,8 +124,9 @@ impl GameState {
                 let _ = client.send(welcome_message.to_string());
                 let _ = client.send(self.serialize());
 
+                let (x, y) = self.random_free_spot(&mut thread_rng());
                 let _ = self.players
-                            .insert(client.id, message::Player::not_moving(client.id, 0.0, 0.0));
+                            .insert(client.id, message::Player::not_moving(client.id, x, y));
 
                 let _ = self.clients.insert(client.id, client);
             }
@@ -182,5 +186,37 @@ impl GameState {
             }
             _ => panic!("Unprocessed message! {}", message.to_string()),
         }
+    }
+
+    fn random_free_spot<R: Rng>(&self, rng: &mut R) -> (f32, f32) {
+        static MAX_ITERATIONS: u32 = 100;
+
+        for _ in 1..MAX_ITERATIONS {
+            let x: f32 = rng.gen_range(0.0, MAP_WIDTH);
+            let y: f32 = rng.gen_range(0.0, MAP_HEIGHT);
+
+            let mut collides = false;
+
+            for (_, player) in &self.players {
+                if distance_between(x, y, player.x, player.y) < 2.0 * PLAYER_RADIUS {
+                    collides = true;
+                    break;
+                }
+            }
+
+            for (_, bullet) in &self.bullets {
+                if distance_between(x, y, bullet.x, bullet.y) < PLAYER_RADIUS + BULLET_RADIUS {
+                    collides = true;
+                    break;
+                }
+            }
+
+            if !collides {
+                return (x, y);
+            }
+        }
+        println!("Failed to find a random empty spot for player after {} iterations", MAX_ITERATIONS);
+
+        (rng.gen_range(0.0, MAP_WIDTH), rng.gen_range(0.0, MAP_HEIGHT))
     }
 }

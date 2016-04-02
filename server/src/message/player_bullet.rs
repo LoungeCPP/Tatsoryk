@@ -114,11 +114,9 @@ fn unpack_u32(val: &serde_json::Value) -> Result<u32, MessageError> {
 /// Only testing Player, because Bullet is literally identical
 #[cfg(test)]
 mod tests {
-    extern crate rand;
-
     use std::iter::FromIterator;
     use std::collections::BTreeMap;
-    use self::rand::{thread_rng, Rng};
+    use rand::{thread_rng, Rng};
     use serde_json::Value;
     use self::super::Player;
     use self::super::super::MessageError;

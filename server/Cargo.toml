@@ -13,10 +13,8 @@ authors = ["nabijaczleweli <nabijaczleweli@gmail.com>",
 
 [dependencies]
 clap = "2.2"
-serde = "0.7"
-serde_json = "0.7"
-time = "0.1"
-websocket = "0.16"
-
-[dev-dependencies]
 rand = "0.3"
+time = "0.1"
+serde = "0.7"
+websocket = "0.16"
+serde_json = "0.7"

@@ -1,15 +1,13 @@
-extern crate rand;
-
 use std::iter::FromIterator;
 use std::collections::BTreeMap;
-use self::rand::Rng;
+use rand::Rng;
 use self::super::{Player, Bullet};
 use serde_json::Value;
 
 mod ser {
     use self::super::*;
-    use self::super::rand::{Rng, thread_rng};
     use self::super::super::*;
+    use rand::{Rng, thread_rng};
     use serde_json::{self, Value};
 
     #[test]
@@ -286,8 +284,8 @@ mod ser {
 mod de {
     mod correct {
         use self::super::super::*;
-        use self::super::super::rand::{Rng, thread_rng};
         use self::super::super::super::*;
+        use rand::{Rng, thread_rng};
         use serde_json;
 
         #[test]
@@ -551,8 +549,8 @@ mod de {
     mod incorrect {
         use std::collections::BTreeMap;
         use self::super::super::*;
-        use self::super::super::rand::{Rng, thread_rng};
         use self::super::super::super::{Message, MessageError};
+        use rand::{Rng, thread_rng};
         use serde_json;
 
         #[test]

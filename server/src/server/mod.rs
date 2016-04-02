@@ -1,7 +1,10 @@
 //! The server logic for the game.
 //!
 //! In order for the multiplayer to work, the server program listens for websocket connections.
-//! This file implements that logic.
+//! This module implements that logic.
+
+mod events;
+mod gamestate;
 
 use std::sync::mpsc::channel;
 use std::thread;
@@ -16,10 +19,12 @@ use websocket::server::Connection;
 use websocket::stream::WebSocketStream;
 use std::sync::mpsc;
 
+use time;
 use std::str::{self, FromStr};
+use std::time::Duration;
 
-use events::Client;
-use events::WebSocketEvent;
+pub use self::events::*;
+pub use self::gamestate::GameState;
 
 /// The main listening loop for the server.
 pub fn listen(host: &str, port: u16, game_messages_sender: mpsc::Sender<WebSocketEvent>) {
@@ -39,7 +44,33 @@ pub fn listen(host: &str, port: u16, game_messages_sender: mpsc::Sender<WebSocke
             }
         });
     }
+}
 
+/// Spawns the main game loop in a separate thread. Non-blocking.
+///
+/// The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
+pub fn start_game_loop(game_messages: mpsc::Receiver<WebSocketEvent>) {
+    static ITER_LENGTH: u64 = 16 * 1000000; // 16 milliseconds
+
+    let _ = thread::spawn(move || {
+        let mut game_state = GameState::new();
+
+        let start_time = time::precise_time_ns();
+        let mut iter: u64 = 1;
+        loop {
+            game_state.process_websocket_events(&game_messages);
+            game_state.process_game_update();
+            game_state.send_state_updates();
+
+            // Sleep if needed to the next update
+            let time_till_next = ((iter * ITER_LENGTH) as i64) -
+                                 ((time::precise_time_ns() - start_time) as i64);
+            iter += 1;
+            if time_till_next > 0 {
+                thread::sleep(Duration::new(0, time_till_next as u32));
+            }
+        }
+    });
 }
 
 #[derive(Debug)]
