@@ -3,6 +3,7 @@
 use message;
 
 use std::collections::HashMap;
+use std::cell::RefCell;
 use std::sync::mpsc;
 
 use std::vec::Vec;
@@ -25,7 +26,7 @@ static MAP_HEIGHT: f32 = 500.0;
 /// It consists of both players, and all the clients which are currently connected.
 #[derive(Debug)]
 pub struct GameState {
-    players: HashMap<u32, message::Player>,
+    players: HashMap<u32, RefCell<message::Player>>,
     bullets: HashMap<u32, message::Bullet>,
     clients: HashMap<u32, Client>,
     next_bullet_id: u32,
@@ -56,9 +57,39 @@ impl GameState {
     /// Updates the game state in one tick.
     pub fn process_game_update(&mut self) {
         // Do a normal position update
-        for (_, player) in &mut self.players {
-            player.x += player.move_x.unwrap_or(0.0);
-            player.y += player.move_y.unwrap_or(0.0);
+        for (_, player_cell) in &self.players {
+            let mut player = player_cell.borrow_mut();
+            let temp_x = player.x + player.move_x.unwrap_or(0.0);
+            let temp_y = player.y + player.move_y.unwrap_or(0.0);
+
+            // Check borders
+            if temp_x < (0.0 + PLAYER_RADIUS) || temp_x > (MAP_WIDTH - PLAYER_RADIUS) ||
+               temp_y < (0.0 + PLAYER_RADIUS) ||
+               temp_y > (MAP_HEIGHT - PLAYER_RADIUS) {
+                continue;
+            }
+
+            let mut colliding = false;
+
+            // Check collisions
+            for (player2_id, player2_cell) in &self.players {
+                if *player2_id == player.id {
+                    continue;
+                }
+                let player2 = player2_cell.borrow();
+                if distance_between(temp_x, temp_y, player2.x, player2.y) < 2.0 * PLAYER_RADIUS {
+                    colliding = true;
+                }
+            }
+
+            if colliding {
+                continue;
+            }
+
+            // Only update now that we have verified that it is valid
+            player.x = temp_x;
+            player.y = temp_y;
+
         }
 
         let mut destroyed_bullets = Vec::new();
@@ -73,13 +104,16 @@ impl GameState {
             }
         }
 
-        // Check for collisions
-        for (_, bullet) in &mut self.bullets {
-            for (_, player) in &mut self.players {
-                if distance_between(bullet.x, bullet.y, player.x, player.y) <
+        // Check for bullet collisions
+        for (_, bullet) in &self.bullets {
+            for (_, player_cell) in &self.players {
+                if distance_between(bullet.x,
+                                    bullet.y,
+                                    player_cell.borrow().x,
+                                    player_cell.borrow().y) <
                    BULLET_RADIUS + PLAYER_RADIUS {
                     destroyed_bullets.push(bullet.id);
-                    destroyed_players.push(player.id);
+                    destroyed_players.push(player_cell.borrow().id);
                 }
             }
         }
@@ -92,7 +126,7 @@ impl GameState {
         let mut rng = thread_rng();
         for player_id in destroyed_players {
             let (new_x, new_y) = self.random_free_spot(&mut rng);
-            let dead_player = self.players.get_mut(&player_id).unwrap();
+            let mut dead_player = self.players.get_mut(&player_id).unwrap().borrow_mut();
             dead_player.x = new_x;
             dead_player.y = new_y;
         }
@@ -126,7 +160,8 @@ impl GameState {
 
                 let (x, y) = self.random_free_spot(&mut thread_rng());
                 let _ = self.players
-                            .insert(client.id, message::Player::not_moving(client.id, x, y));
+                            .insert(client.id,
+                                    RefCell::new(message::Player::not_moving(client.id, x, y)));
 
                 let _ = self.clients.insert(client.id, client);
             }
@@ -143,7 +178,7 @@ impl GameState {
     fn serialize(&self) -> String {
         let players = Vec::from_iter(self.players
                                          .values()
-                                         .map(Clone::clone));
+                                         .map(|a| a.borrow().clone()));
         let bullets = Vec::from_iter(self.bullets
                                          .values()
                                          .map(Clone::clone));
@@ -159,17 +194,17 @@ impl GameState {
     fn process_client_message(&mut self, client_id: u32, message: message::Message) {
         match message {
             message::Message::StartMoving { move_x, move_y } => {
-                let player = self.players.get_mut(&client_id).unwrap();
+                let mut player = self.players.get_mut(&client_id).unwrap().borrow_mut();
                 player.move_x = Some(move_x);
                 player.move_y = Some(move_y);
             }
             message::Message::StopMoving => {
-                let player = self.players.get_mut(&client_id).unwrap();
+                let mut player = self.players.get_mut(&client_id).unwrap().borrow_mut();
                 player.move_x = None;
                 player.move_y = None;
             }
             message::Message::Fire { move_x, move_y } => {
-                let player = self.players.get(&client_id).unwrap();
+                let player = self.players.get(&client_id).unwrap().borrow();
 
                 // Have to move the bullet out of the way of the player to avoid an instant collision.
                 let start_x = player.x + move_x * (BULLET_RADIUS + PLAYER_RADIUS + 1.0);
@@ -192,13 +227,14 @@ impl GameState {
         static MAX_ITERATIONS: u32 = 100;
 
         for _ in 1..MAX_ITERATIONS {
-            let x: f32 = rng.gen_range(0.0, MAP_WIDTH);
-            let y: f32 = rng.gen_range(0.0, MAP_HEIGHT);
+            let x: f32 = rng.gen_range(PLAYER_RADIUS + 1.0, MAP_WIDTH - PLAYER_RADIUS - 1.0);
+            let y: f32 = rng.gen_range(PLAYER_RADIUS + 1.0, MAP_HEIGHT - PLAYER_RADIUS - 1.0);
 
             let mut collides = false;
 
-            for (_, player) in &self.players {
-                if distance_between(x, y, player.x, player.y) < 2.0 * PLAYER_RADIUS {
+            for (_, player_cell) in &self.players {
+                if distance_between(x, y, player_cell.borrow().x, player_cell.borrow().y) <
+                   2.0 * PLAYER_RADIUS {
                     collides = true;
                     break;
                 }
@@ -215,7 +251,8 @@ impl GameState {
                 return (x, y);
             }
         }
-        println!("Failed to find a random empty spot for player after {} iterations", MAX_ITERATIONS);
+        println!("Failed to find a random empty spot for player after {} iterations",
+                 MAX_ITERATIONS);
 
         (rng.gen_range(0.0, MAP_WIDTH), rng.gen_range(0.0, MAP_HEIGHT))
     }
