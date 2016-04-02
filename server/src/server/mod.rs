@@ -110,7 +110,7 @@ fn handle_connection(id: u32,
                    .get_mut()
                    .peer_addr());
 
-    println!("Connection from {}", id);
+    println!("Connection from {} with id {}", ip, id);
 
     let (sender, mut receiver) = client.split();
 
@@ -134,7 +134,7 @@ fn handle_connection(id: u32,
 
         match message.opcode {
             Type::Close => {
-                println!("Client {} disconnected", ip);
+                println!("Client {} disconnected", id);
 
                 // Should never fail
                 game_messages_sender.send(WebSocketEvent::ClientClosed { client_id: id })
