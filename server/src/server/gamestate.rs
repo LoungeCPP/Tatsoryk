@@ -52,9 +52,42 @@ impl GameState {
     /// Updates the game state in one tick.
     pub fn process_game_update(&mut self) {
         // Do a normal position update
-        for (_, player) in &mut self.players {
-            player.x += player.move_x.unwrap_or(0.0);
-            player.y += player.move_y.unwrap_or(0.0);
+        let player_ids: Vec<_> = self.players.keys().map(|i| *i).collect();
+        for cur_player_id in &player_ids {
+            {
+                let cur_player = self.players.get(cur_player_id).unwrap();
+                match (cur_player.move_x, cur_player.move_y) {
+                    (None, None) => continue,
+                    (Some(move_x), Some(move_y)) => {
+                        let mut collides = false;
+                        for cmp_player_id in &player_ids {
+                            if cmp_player_id != cur_player_id {
+                                let cmp_player = self.players.get(cmp_player_id).unwrap();
+                                if distance_between(cur_player.x + move_x,
+                                                    cur_player.y + move_y,
+                                                    cmp_player.x,
+                                                    cmp_player.y) <
+                                   2.0 * PLAYER_RADIUS {
+                                    collides = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if collides {
+                            continue;
+                        }
+                    }
+                    _ => panic!("Invariant not met: player moves only in one direction"),
+                }
+            }
+
+            let mut player = self.players.get_mut(cur_player_id).unwrap();
+            player.x = (player.x + player.move_x.unwrap_or(0.0))
+                           .max(PLAYER_RADIUS)
+                           .min(MAP_WIDTH - PLAYER_RADIUS);
+            player.y = (player.y + player.move_y.unwrap_or(0.0))
+                           .max(PLAYER_RADIUS)
+                           .min(MAP_HEIGHT - PLAYER_RADIUS);
         }
 
         let mut destroyed_bullets = Vec::new();
@@ -190,9 +223,14 @@ impl GameState {
     fn random_free_spot<R: Rng>(&self, rng: &mut R) -> (f32, f32) {
         static MAX_ITERATIONS: u32 = 100;
 
+        let min_vial_x = PLAYER_RADIUS;
+        let min_vial_y = PLAYER_RADIUS;
+        let max_vial_x = MAP_WIDTH - PLAYER_RADIUS;
+        let max_vial_y = MAP_HEIGHT - PLAYER_RADIUS;
+
         for _ in 1..MAX_ITERATIONS {
-            let x: f32 = rng.gen_range(0.0, MAP_WIDTH);
-            let y: f32 = rng.gen_range(0.0, MAP_HEIGHT);
+            let x: f32 = rng.gen_range(min_vial_x, max_vial_x);
+            let y: f32 = rng.gen_range(min_vial_y, max_vial_y);
 
             let mut collides = false;
 
@@ -214,7 +252,8 @@ impl GameState {
                 return (x, y);
             }
         }
-        println!("Failed to find a random empty spot for player after {} iterations", MAX_ITERATIONS);
+        println!("Failed to find a random empty spot for player after {} iterations",
+                 MAX_ITERATIONS);
 
         (rng.gen_range(0.0, MAP_WIDTH), rng.gen_range(0.0, MAP_HEIGHT))
     }
