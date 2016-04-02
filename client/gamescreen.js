@@ -16,6 +16,10 @@
         var keymap = {};
         var self = this;
 
+        // Current mouse position relative to canvas origin.
+        // For aim vector rendering.
+        var mousePos = null;
+
         // Get the current player entity or null if you are dead.
         var getPlayer = function() {
             var temp = state.alivePlayers.filter(function(player) {
@@ -53,7 +57,6 @@
         // Process a mouse click
         self.onMouseClick = function(x, y, type) {
             var player = getPlayer();
-
             if (player == null) {
                 return;
             }
@@ -61,8 +64,15 @@
             var dx = x - player.position.x;
             var dy = y - player.position.y;
 
-
             socket.fire(new Victor(dx, dy));
+        }
+
+        // Process a mouse move
+        self.onMouseMove = function(x, y) {
+            mousePos = {
+                x: x,
+                y: y,
+            };
         }
 
         // Process a key down event
@@ -79,6 +89,18 @@
 
         // Draw the current game.
         self.draw = function(context) {
+            if (mousePos) {
+                var curPlayer = getPlayer();
+                if (curPlayer) {
+                    context.strokeStyle = 'rgba(255, 0, 0, 0.1)';
+                    context.beginPath();
+                    context.moveTo(curPlayerPos.position.x, curPlayerPos.position.y);
+                    context.lineTo(mousePos.x, mousePos.y);
+                    context.stroke();
+                    context.strokeStyle = 'black';
+                }
+            }
+
             for (var i = 0; i < state.alivePlayers.length; i++) {
                 var player = state.alivePlayers[i];
 

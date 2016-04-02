@@ -32,7 +32,12 @@
     var processMouseDown = function(event) {
         var coords = getRelativeMouseCords(event);
         game.onMouseClick(coords.x, coords.y, Game.INPUT_FIRE);
-    }
+    };
+
+    var processMouseMove = function(event) {
+        var coords = getRelativeMouseCords(event);
+        game.onMouseMove(coords.x, coords.y);
+    };
 
     var bindInput = function() {
         var bind = function(key, input) {
@@ -52,6 +57,7 @@
         bind('d', Game.INPUT_MOVE_RIGHT);
 
         canvas.addEventListener('mousedown', processMouseDown);
+        canvas.addEventListener('mousemove', processMouseMove);
     };
 
     var unbindInput = function() {
@@ -59,6 +65,7 @@
             keyboard.reset();
         }
         keyboard = null;
+        canvas.removeEventListener('mousemove', processMouseMove);
         canvas.removeEventListener('mousedown', processMouseDown);
     };
 
