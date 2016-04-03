@@ -220,9 +220,12 @@
 
         document.getElementById('connect').addEventListener('click', onConnectClick);
         document.getElementById('disconnect').addEventListener('click', onDisconnectClick);
-        // TODO maybe figure out godo way to fill available viewport
+        // TODO maybe figure out good way to fill available viewport
 
         window.requestAnimationFrame(frame);
+
+        var address = document.getElementById('server-address');
+        address.value = address.value.replace('localhost:8000', /http(?:s?):\/\/(.*)*\//.exec(document.URL)[1]);
     };
 
     document.addEventListener('DOMContentLoaded', onDOMReady);

@@ -22,5 +22,6 @@ mod tests {
     fn distance_between_produces_expected_results() {
         let distance = distance_between(0.0, 0.0, 1.0, 1.0);
         assert_eq!((distance * 100000.0).round() / 100000.0, 1.41421);
+        assert_eq!(distance_between(0.0, 3.0, 4.0, 0.0), 5.0);
     }
 }
