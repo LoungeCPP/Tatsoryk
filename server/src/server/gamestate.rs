@@ -13,8 +13,10 @@ use self::super::WebSocketEvent;
 
 static BULLET_RADIUS: f32 = 5.0;
 static PLAYER_RADIUS: f32 = 10.0;
-static MAP_WIDTH: f32 = 500.0;
+static BULLET_SPEED: f32 = 3.0;
+static PLAYER_SPEED: f32 = 2.0;
 static MAP_HEIGHT: f32 = 500.0;
+static MAP_WIDTH: f32 = 500.0;
 
 /// The `GameState` contains the whole state of the game.
 ///
@@ -82,10 +84,10 @@ impl GameState {
             }
 
             let mut player = self.players.get_mut(cur_player_id).unwrap();
-            player.x = (player.x + player.move_x.unwrap_or(0.0))
+            player.x = (player.x + player.move_x.unwrap_or(0.0) * PLAYER_SPEED)
                            .max(PLAYER_RADIUS)
                            .min(MAP_WIDTH - PLAYER_RADIUS);
-            player.y = (player.y + player.move_y.unwrap_or(0.0))
+            player.y = (player.y + player.move_y.unwrap_or(0.0) * PLAYER_SPEED)
                            .max(PLAYER_RADIUS)
                            .min(MAP_HEIGHT - PLAYER_RADIUS);
         }
@@ -94,8 +96,8 @@ impl GameState {
         let mut destroyed_players = Vec::new();
 
         for (_, bullet) in &mut self.bullets {
-            bullet.x += bullet.move_x.unwrap_or(0.0);
-            bullet.y += bullet.move_y.unwrap_or(0.0);
+            bullet.x += bullet.move_x.unwrap_or(0.0) * BULLET_SPEED;
+            bullet.y += bullet.move_y.unwrap_or(0.0) * BULLET_SPEED;
 
             if bullet.x < 0.0 || bullet.x > MAP_WIDTH || bullet.y < 0.0 || bullet.y > MAP_HEIGHT {
                 destroyed_bullets.push(bullet.id);
@@ -144,9 +146,9 @@ impl GameState {
             WebSocketEvent::ClientCreated { client } => {
                 let welcome_message = message::Message::Welcome {
                     id: client.id,
-                    speed: 0.0,
+                    speed: PLAYER_SPEED,
                     size: PLAYER_RADIUS,
-                    bullet_speed: 0.0,
+                    bullet_speed: BULLET_SPEED,
                     bullet_size: BULLET_RADIUS,
                 };
 
