@@ -17,6 +17,7 @@ static BULLET_SPEED: f32 = 3.0;
 static PLAYER_SPEED: f32 = 2.0;
 static MAP_HEIGHT: f32 = 500.0;
 static MAP_WIDTH: f32 = 500.0;
+static TICKS_BETWEEN_FULL_UPDATES: u32 = 600; // 10s @ 60FPS
 
 /// The `GameState` contains the whole state of the game.
 ///
@@ -27,6 +28,7 @@ pub struct GameState {
     bullets: HashMap<u32, message::Bullet>,
     clients: HashMap<u32, Client>,
     next_bullet_id: u32,
+    ticks_since_last_full_update: u32,
 }
 
 impl GameState {
@@ -37,6 +39,7 @@ impl GameState {
             bullets: HashMap::new(),
             clients: HashMap::new(),
             next_bullet_id: 0,
+            ticks_since_last_full_update: 0,
         }
     }
 
@@ -122,21 +125,35 @@ impl GameState {
 
         let mut rng = thread_rng();
         for player_id in destroyed_players {
+            self.send_to_everybody(message::Message::PlayerDestroyed {
+                id: player_id,
+                killer_id: None,
+                bullet_id: None,
+            });
+
             let (new_x, new_y) = self.random_free_spot(&mut rng);
-            let dead_player = self.players.get_mut(&player_id).unwrap();
-            dead_player.x = new_x;
-            dead_player.y = new_y;
+
+            {
+                let dead_player = self.players.get_mut(&player_id).unwrap();
+                dead_player.x = new_x;
+                dead_player.y = new_y;
+            }
+
+            self.send_to_everybody(message::Message::PlayerSpawned {
+                id: player_id,
+                x: new_x,
+                y: new_y,
+            });
         }
     }
 
     /// Send the current state to each client.
-    pub fn send_state_updates(&self) {
-        let value = self.serialize();
-
-        for (_, client) in &self.clients {
-            // Always ignore if the send fails.
-            // We will eventually get a disconnect WebSocketMessage where we will cleanly do the disconnect.
-            let _ = client.send(value.clone());
+    pub fn send_state_updates(&mut self) {
+        if self.ticks_since_last_full_update == TICKS_BETWEEN_FULL_UPDATES {
+            self.ticks_since_last_full_update = 0;
+            self.send_to_everybody(self.serialize());
+        } else {
+            self.ticks_since_last_full_update += 1;
         }
     }
 
@@ -153,17 +170,26 @@ impl GameState {
                 };
 
                 let _ = client.send(welcome_message.to_string());
-                let _ = client.send(self.serialize());
+                self.send_to_everybody(message::Message::PlayerJoined { id: client.id });
 
                 let (x, y) = self.random_free_spot(&mut thread_rng());
                 let _ = self.players
                             .insert(client.id, message::Player::not_moving(client.id, x, y));
+                self.send_to_everybody(message::Message::PlayerSpawned {
+                    id: client.id,
+                    x: x,
+                    y: y,
+                });
+
+                let _ = client.send(self.serialize().to_string());
 
                 let _ = self.clients.insert(client.id, client);
             }
             WebSocketEvent::ClientClosed { client_id } => {
                 let _ = self.players.remove(&client_id);
                 let _ = self.clients.remove(&client_id);
+
+                self.send_to_everybody(message::Message::PlayerLeft { id: client_id });
             }
             WebSocketEvent::ClientMessage { client_id, message } => {
                 self.process_client_message(client_id, message);
@@ -172,7 +198,7 @@ impl GameState {
     }
 
     /// Serialize the entire game state into one json string.
-    fn serialize(&self) -> String {
+    fn serialize(&self) -> message::Message {
         let players: Vec<_> = self.players
                                   .values()
                                   .cloned()
@@ -181,26 +207,45 @@ impl GameState {
                                   .values()
                                   .cloned()
                                   .collect();
-        let state = message::Message::WorldState {
+        message::Message::WorldState {
             player_count: players.len() as u32,
             alive_players: players,
             alive_bullets: bullets,
-        };
-        state.to_string()
+        }
     }
 
     /// Process a simple string message from the client.
     fn process_client_message(&mut self, client_id: u32, message: message::Message) {
         match message {
             message::Message::StartMoving { move_x, move_y } => {
-                let player = self.players.get_mut(&client_id).unwrap();
-                player.move_x = Some(move_x);
-                player.move_y = Some(move_y);
+                let resp = {
+                    let player = self.players.get_mut(&client_id).unwrap();
+                    player.move_x = Some(move_x);
+                    player.move_y = Some(move_y);
+
+                    message::Message::PlayerMoving {
+                        id: player.id,
+                        x: player.x,
+                        y: player.y,
+                        move_x: move_x,
+                        move_y: move_y,
+                    }
+                };
+                self.send_to_everybody(resp);
             }
             message::Message::StopMoving => {
-                let player = self.players.get_mut(&client_id).unwrap();
-                player.move_x = None;
-                player.move_y = None;
+                let resp = {
+                    let player = self.players.get_mut(&client_id).unwrap();
+                    player.move_x = None;
+                    player.move_y = None;
+
+                    message::Message::PlayerStopped {
+                        id: player.id,
+                        x: player.x,
+                        y: player.y,
+                    }
+                };
+                self.send_to_everybody(resp);
             }
             message::Message::Fire { move_x, move_y } => {
                 let player = self.players.get(&client_id).unwrap();
@@ -215,6 +260,16 @@ impl GameState {
                                                                     start_y,
                                                                     move_x,
                                                                     move_y));
+
+                let resp = message::Message::ShotsFired {
+                    id: player.id,
+                    bullet_id: self.next_bullet_id,
+                    x: start_x,
+                    y: start_y,
+                    aim_x: move_x,
+                    aim_y: move_y,
+                };
+                self.send_to_everybody(resp);
 
                 self.next_bullet_id += 1;
             }
@@ -258,5 +313,14 @@ impl GameState {
                  MAX_ITERATIONS);
 
         (rng.gen_range(0.0, MAP_WIDTH), rng.gen_range(0.0, MAP_HEIGHT))
+    }
+
+    fn send_to_everybody(&self, what: message::Message) {
+        let value = what.to_string();
+        for (_, client) in &self.clients {
+            // Always ignore if the send fails.
+            // We will eventually get a disconnect WebSocketMessage where we will cleanly do the disconnect.
+            let _ = client.send(value.clone());
+        }
     }
 }
