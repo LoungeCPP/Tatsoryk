@@ -1,0 +1,7 @@
+{
+    "ambientDependencies": {
+        "keypress": "registry:dt/keypress#2.0.3+20160317120654",
+        "victor": "registry:dt/victor#0.2.5+20160316155526",
+        "wolfy87-eventemitter": "registry:dt/wolfy87-eventemitter#4.2.9+20160317120654"
+    }
+}

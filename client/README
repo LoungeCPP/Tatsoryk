@@ -1,0 +1,5 @@
+1. Download and install Node.js from https://nodejs.org with npm (both LTS and Stable will suffice).
+2. Install GNU make version 3.81 at least.
+3. Running GNU make in client root will install dependencies and build the client. With tyeps.
+
+If you're not in the contributors section in package.json, add yourself there if you commit any code.

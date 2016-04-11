@@ -7,10 +7,18 @@ matrix:
           rust: beta
         - language: rust
           rust: nightly
+        - language: node_js
+          node_js: "5.1"
+        - language: node_js
+          node_js: "4.2"
 
 script:
     - if [ -n "$TRAVIS_RUST_VERSION" ]; then
           cd server;
           cargo test;
+      fi
+    - if [ -n "$TRAVIS_NODE_VERSION" ]; then
+          cd client;
+          make;
       fi
 
