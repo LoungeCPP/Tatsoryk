@@ -3,9 +3,11 @@
 import {GameInput, MousePos, getRelativeMouseCords} from './input';
 import {GameWSTransport} from './transport';
 import {GameScreen} from './gamescreen';
-import {GameSocket, MessageData} from './protocol';
+import {GameSocket, MessageData, Entity} from './protocol';
 
 class Game {
+    static tickPeriod: number = 1.0 / 60;
+
     transport: GameWSTransport = null;
     socket: GameSocket = null;
     canvas: HTMLCanvasElement = null;
@@ -48,6 +50,81 @@ class Game {
     }
 
     //
+    // Updates without full state
+    //
+
+    update = (): void => {
+        this.updatePlayerStates();
+        this.updateBulletStates();
+        this.doBulletCollisionChecks();
+    }
+
+    updatePlayerStates(): void {
+        var minDistance = this.welcomeMessage.size;
+        var minPlayerDistanceSq = 4 * minDistance * minDistance;
+        var maxDistanceX = this.canvas.width - this.welcomeMessage.size;
+        var maxDistanceY = this.canvas.height - this.welcomeMessage.size;
+        this.game.state.alivePlayers.forEach((player: Entity): void => {
+            if (player.direction != null) {
+                var move = player.direction.clone().multiplyScalar(this.welcomeMessage.speed);
+                var newpos = player.position.clone().add(move);
+                if (!this.game.state.alivePlayers.some((cmpPlayer: Entity) => {
+                    return cmpPlayer.id != player.id && cmpPlayer.distanceSq(newpos) <= minPlayerDistanceSq;
+                })) {
+                    player.position.x = Math.min(Math.max(newpos.x, minDistance), maxDistanceX);
+                    player.position.y = Math.min(Math.max(newpos.y, minDistance), maxDistanceY);
+                }
+            }
+        });
+    }
+
+    updateBulletStates(): void {
+        this.game.state.aliveBullets.forEach((bullet: Entity): void => {
+            if (bullet.direction != null) {
+                bullet.position.x += bullet.direction.x * this.welcomeMessage.bulletSpeed;
+                bullet.position.y += bullet.direction.y * this.welcomeMessage.bulletSpeed;
+            }
+        });
+    }
+
+    doBulletCollisionChecks(): void {
+        var killedPlayers: Array<number> = [];
+        var destroyedBullets: Array<number> = [];
+        this.game.state.aliveBullets.forEach((bullet: Entity): void => {
+            if (this.bulletOutOfBounds(bullet)) {
+                destroyedBullets.push(bullet.id);
+                return; // if the bullet just went OOB, no point checking for player hits... right?
+            }
+            this.game.state.alivePlayers.forEach((player: Entity): void => {
+                if (this.bulletHitPlayer(bullet, player)) {
+                    destroyedBullets.push(bullet.id);
+                    killedPlayers.push(player.id);
+                }
+            });
+        });
+
+        let removeKilledEntity = (killedEntities: Array<number>): ((entity: Entity) => boolean) => {
+            return function(entity: Entity): boolean {
+                return killedEntities.indexOf(entity.id) == -1;
+            };
+        };
+        this.game.state.alivePlayers = this.game.state.alivePlayers.filter(removeKilledEntity(killedPlayers));
+        this.game.state.aliveBullets = this.game.state.aliveBullets.filter(removeKilledEntity(destroyedBullets));
+    }
+
+    bulletOutOfBounds(bullet: Entity): boolean {
+        var pos = bullet.position;
+        return pos.x < 0 || pos.y < 0 || pos.x > this.canvas.width || pos.y > this.canvas.height;
+    }
+
+    bulletHitPlayer(bullet: Entity, player: Entity): boolean {
+        var distanceSq = bullet.distanceSq(player);
+        var collisionRange = this.welcomeMessage.size + this.welcomeMessage.bulletSize;
+        // calculation is done on distance squared as it avoids the relatively costly square toot
+        return distanceSq < collisionRange * collisionRange;
+    }
+
+    //
     // Networking
     //
 
@@ -66,31 +143,49 @@ class Game {
     }
 
     handlePlayerJoined = (msg: MessageData.PlayerJoined): void => {
-        // TODO do stuff~
+        ++this.game.state.playerCount;
     }
 
     handlePlayerLeft = (msg: MessageData.PlayerLeft): void => {
-        // TODO do stuff~
+        --this.game.state.playerCount;
+        this.game.state.alivePlayers = this.game.state.alivePlayers.filter((player: Entity): boolean => {
+            return player.id != msg.id;
+        });
     }
 
     handleShotsFired = (msg: MessageData.ShotsFired): void => {
-        // TODO do stuff~
+        this.game.state.aliveBullets.push(new Entity(msg.bulletID, msg.position, msg.aim));
     }
 
     handlePlayerSpawned = (msg: MessageData.PlayerSpawned): void => {
-        // TODO do stuff~
+        this.game.state.alivePlayers.push(new Entity(msg.id, msg.position));
     }
 
     handlePlayerDestroyed = (msg: MessageData.PlayerDestroyed): void => {
-        // TODO do stuff~
+        this.game.state.alivePlayers = this.game.state.alivePlayers.filter((player: Entity): boolean => {
+            return player.id != msg.id;
+        });
+        if (msg.bulletID != null) {
+            this.game.state.aliveBullets = this.game.state.aliveBullets.filter((bullet: Entity): boolean => {
+                return bullet.id != msg.bulletID;
+            });
+        }
     }
 
     handlePlayerMoving = (msg: MessageData.PlayerMoving): void => {
-        // TODO do stuff~
+        var player = this.game.state.alivePlayers.find((player: Entity): boolean => {
+            return player.id == msg.id;
+        });
+        player.position = msg.position;
+        player.direction = msg.direction;
     }
 
     handlePlayerStopped = (msg: MessageData.PlayerStopped): void => {
-        // TODO do stuff~
+        var player = this.game.state.alivePlayers.find((player: Entity): boolean => {
+            return player.id == msg.id;
+        });
+        player.position = msg.position;
+        player.direction = null;
     }
 
     handleWorldState = (msg: MessageData.WorldState): void => {
@@ -161,6 +256,8 @@ class Game {
     // Game logic
     //
 
+    updateInterval: number;
+
     // Create the game given a welcome message and an initial state.
     // Welcome must be a welcome message.
     // initialState must be a world state message.
@@ -168,11 +265,15 @@ class Game {
         // TODO
         this.game = new GameScreen(welcome.id, welcome.size, welcome.bulletSize, initialState, this.socket);
         this.bindInput();
+        this.updateInterval = setInterval(this.update, Game.tickPeriod * 1000);
     }
 
     stopGame = (): void => {
         // TODO
+        clearInterval(this.updateInterval);
+        this.updateInterval = null;
         this.unbindInput();
+        this.game = null;
     }
 
     //

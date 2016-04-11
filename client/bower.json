@@ -1,0 +1,22 @@
+{
+  "name": "tatsoryk-client",
+  "description": "Implementation of the client for Tatsoryk",
+  "authors": [
+    "nabijaczleweli <nabijaczleweli@gmail.com>",
+    "Cat Plus Plus <piotrlegnica@piotrl.pl>",
+    "Lalaland <ethan.steinberg@gmail.com"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "game",
+    "lounge",
+    "client"
+  ],
+  "homepage": "https://github.com/LoungeCPP/Tatsoryk",
+  "private": true,
+  "dependencies": {
+    "ts-polyfills": "git://github.com/nabijaczleweli/ts-polyfills.git#deploy",
+    "victor": "^1.1.0",
+    "Keypress": "^2.1.4"
+  }
+}

@@ -2,4 +2,6 @@
 2. Install GNU make version 3.81 at least.
 3. Running GNU make in client root will install dependencies and build the client. With tyeps.
 
-If you're not in the contributors section in package.json, add yourself there if you commit any code.
+If npm fails on Vagrant VM with a message containing "symlink", that means you need to run make install from your host OS (after make clean-install, of course). This is a known (and unfixed) issue.
+
+If you're not in the contributors section in package.json and bower.json, add yourself there if you commit any code.

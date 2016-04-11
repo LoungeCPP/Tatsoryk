@@ -64,6 +64,14 @@ export class GameSocket extends EventEmitter {
 
 export class Entity {
     constructor(public id: number, public position: Victor, public direction?: Victor) { }
+
+    public distanceSq(to: Entity | Victor): number {
+        if ('position' in to) {
+            return this.position.distanceSq((<Entity>to).position);
+        } else {
+            return this.position.distanceSq(<Victor>to);
+        }
+    }
 }
 
 export class Message {

@@ -20,9 +20,11 @@
     ],
     "repository": "LoungeCPP/Tatsoryk",
     "devDependencies": {
+        "bower": "^1.7.9",
         "browserify": "^13.0.0",
         "typescript": "^1.8.9",
-        "typings": "^0.7.12"
+        "typings": "^0.7.12",
+        "yuglify": "^0.1.4"
     },
     "dependencies": {
         "wolfy87-eventemitter": "^4.3.0"

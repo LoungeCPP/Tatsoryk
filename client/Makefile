@@ -1,7 +1,7 @@
 ifeq "$(OS)" "Windows_NT"
-    PATSEP := ;
+	PATSEP := ;
 else
-    PATSEP := :
+	PATSEP := :
 endif
 
 NPM_BIN := $(shell npm bin)/
@@ -11,7 +11,7 @@ JS_OUT := $(patsubst src/%.ts,out/%.js,$(SOURCES))
 export PATH := $(NPM_BIN)$(PATSEP)$(PATH)
 
 
-.PHONY: all clean build install
+.PHONY: all clean install
 
 all: install tatsoryk.js
 
@@ -19,21 +19,25 @@ clean:
 	rm -rf out/ tatsoryk.js
 
 clean-install: clean
-	rm -rf $(abspath $(NPM_BIN)..) typings
+	rm -rf $(abspath $(NPM_BIN)..) typings/ bower_components/
 
-build: $(SOURCES)
-
-install: $(NPM_BIN)tsc typings/browser.d.ts
+install: $(NPM_BIN)tsc typings/browser.d.ts bower_components/ts-polyfills/index.js
 
 
 tatsoryk.js: $(JS_OUT)
 	browserify -o $@ $^
+ifneq "$(CI)" ""
+	yuglify --terminal --output $@ < $@
+endif
 
 $(NPM_BIN)tsc: package.json
 	npm install
 
 typings/browser.d.ts: typings.json
 	typings install
+
+bower_components/ts-polyfills/index.js: bower.json
+	bower install
 
 
 $(JS_OUT): $(SOURCES)

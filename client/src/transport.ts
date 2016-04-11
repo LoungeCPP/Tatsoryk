@@ -41,7 +41,6 @@ export class GameWSTransport extends EventEmitter {
     };
 
     connect(): void {
-        console.log(this)
         console.log('WSTransport: connect');
         this.explicitDisconnect = false;
 
