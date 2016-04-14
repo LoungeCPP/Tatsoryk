@@ -4,4 +4,4 @@ typings/
 out/
 
 *.js
-!*/*.js
+index.html

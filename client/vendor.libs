@@ -1,0 +1,2 @@
+keypress https://raw.githubusercontent.com/dmauro/Keypress/0f1d1c26d8f42c1a4a4c7d87100abb43eb4ea4bf keypress.js keypress-2.1.4.min.js
+victor https://raw.githubusercontent.com/maxkueng/victor/1.1.0 build/victor.js build/victor.min.js

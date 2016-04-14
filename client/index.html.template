@@ -5,8 +5,6 @@
         <title>Tatsoryk Client</title>
 
         <link rel="stylesheet" href="game.css">
-        <script src="vendor/keypress.js"></script>
-        <script src="vendor/victor.js"></script>
         <script src="tatsoryk.js"></script>
     </head>
     <body>
