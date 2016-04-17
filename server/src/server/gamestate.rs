@@ -58,8 +58,9 @@ impl GameState {
     pub fn process_game_update(&mut self) {
         // Do a normal position update
         let player_ids: Vec<_> = self.players.keys().map(|i| *i).collect();
+        let mut force_stopped_player_ids = Vec::new();
         for cur_player_id in &player_ids {
-            {
+            let collides_with_player = {
                 let cur_player = self.players.get(cur_player_id).unwrap();
                 match (cur_player.move_x, cur_player.move_y) {
                     (None, None) => continue,
@@ -78,21 +79,46 @@ impl GameState {
                                 }
                             }
                         }
-                        if collides {
-                            continue;
-                        }
+                        collides
                     }
                     _ => panic!("Invariant not met: player moves only in one direction"),
                 }
-            }
+            };
 
             let mut player = self.players.get_mut(cur_player_id).unwrap();
-            player.x = (player.x + player.move_x.unwrap_or(0.0) * PLAYER_SPEED)
-                           .max(PLAYER_RADIUS)
-                           .min(MAP_WIDTH - PLAYER_RADIUS);
-            player.y = (player.y + player.move_y.unwrap_or(0.0) * PLAYER_SPEED)
-                           .max(PLAYER_RADIUS)
-                           .min(MAP_HEIGHT - PLAYER_RADIUS);
+            let mut collides_with_map = false;
+
+            if !collides_with_player {
+                player.x = (player.x + player.move_x.unwrap_or(0.0) * PLAYER_SPEED)
+                               .max(PLAYER_RADIUS)
+                               .min(MAP_WIDTH - PLAYER_RADIUS);
+                player.y = (player.y + player.move_y.unwrap_or(0.0) * PLAYER_SPEED)
+                               .max(PLAYER_RADIUS)
+                               .min(MAP_HEIGHT - PLAYER_RADIUS);
+
+                collides_with_map = (player.x == PLAYER_RADIUS ||
+                                     player.x == MAP_WIDTH - PLAYER_RADIUS) ||
+                                    (player.y == PLAYER_RADIUS ||
+                                     player.y == MAP_WIDTH - PLAYER_RADIUS);
+            }
+
+            if collides_with_player || collides_with_map {
+                force_stopped_player_ids.push(cur_player_id);
+            }
+        }
+
+        for force_stopped_player_id in force_stopped_player_ids {
+            let (x, y) = {
+                let mut player = self.players.get_mut(force_stopped_player_id).unwrap();
+                player.move_x = None;
+                player.move_y = None;
+                (player.x, player.y)
+            };
+            self.send_to_everybody(message::Message::PlayerStopped {
+                id: *force_stopped_player_id,
+                x: x,
+                y: y,
+            });
         }
 
         let mut destroyed_bullets = Vec::new();
