@@ -38,7 +38,7 @@ export class GameWSTransport extends EventEmitter {
             this.socket.close();
             this.socket = null;
         }
-    };
+    }
 
     connect(): void {
         console.log('WSTransport: connect');
@@ -87,7 +87,7 @@ export class GameWSTransport extends EventEmitter {
             console.error('WSTransport: error %o', e);
             super.emitEvent('error', [e]);
         };
-    };
+    }
 
     send(message: Message): void {
         if (this.socket === null) {
@@ -97,5 +97,5 @@ export class GameWSTransport extends EventEmitter {
 
         var frame = JSON.stringify(message);
         this.socket.send(frame);
-    };
+    }
 }

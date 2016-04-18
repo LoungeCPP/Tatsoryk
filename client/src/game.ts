@@ -318,7 +318,7 @@ class Game {
 
         this.canvas.addEventListener('mousedown', this.processMouseDown);
         this.canvas.addEventListener('mousemove', this.processMouseMove);
-    };
+    }
 
     unbindInput(): void {
         if (this.keyboard !== null) {
@@ -327,7 +327,7 @@ class Game {
         }
         this.canvas.removeEventListener('mousemove', this.processMouseMove);
         this.canvas.removeEventListener('mousedown', this.processMouseDown);
-    };
+    }
 }
 
 new Game();

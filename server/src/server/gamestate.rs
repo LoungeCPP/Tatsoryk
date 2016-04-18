@@ -234,7 +234,7 @@ impl GameState {
                                   .cloned()
                                   .collect();
         message::Message::WorldState {
-            player_count: players.len() as u32,
+            player_count: self.clients.len() as u32,
             alive_players: players,
             alive_bullets: bullets,
         }
