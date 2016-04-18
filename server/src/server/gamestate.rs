@@ -49,7 +49,7 @@ impl GameState {
             match game_messages.try_recv() {
                 Ok(message) => self.process_websocket_event(message),
                 Err(mpsc::TryRecvError::Empty) => return,
-                Err(mpsc::TryRecvError::Disconnected) => panic!("Now I am disconnected?"),
+                Err(mpsc::TryRecvError::Disconnected) => return, // Server thread died
             }
         }
     }
@@ -348,5 +348,13 @@ impl GameState {
             // We will eventually get a disconnect WebSocketMessage where we will cleanly do the disconnect.
             let _ = client.send(value.clone());
         }
+    }
+}
+
+impl Drop for GameState {
+    fn drop(&mut self) {
+        self.send_to_everybody(message::Message::GoAway {
+            reason: "Server termination".to_string(),
+        });
     }
 }

@@ -139,7 +139,8 @@ class Game {
     }
 
     handleGoAway = (msg: MessageData.GoAway): void => {
-        alert('Server terminated our connection: ' + msg.reason);
+        alert('Server told us to go away because of: ' + msg.reason);
+        this.disconnect();
     }
 
     handlePlayerJoined = (msg: MessageData.PlayerJoined): void => {

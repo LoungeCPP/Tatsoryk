@@ -17,9 +17,10 @@ use websocket::message::Type;
 use websocket::{Server, Message, Receiver};
 use websocket::server::Connection;
 use websocket::stream::WebSocketStream;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, RwLock};
 
 use time;
+use std::cmp;
 use std::str::{self, FromStr};
 use std::time::Duration;
 
@@ -27,13 +28,22 @@ pub use self::events::*;
 pub use self::gamestate::GameState;
 
 /// The main listening loop for the server.
-pub fn listen(host: &str, port: u16, game_messages_sender: mpsc::Sender<WebSocketEvent>) {
+pub fn listen(host: &str,
+              port: u16,
+              game_messages_sender: mpsc::Sender<WebSocketEvent>,
+              cont: &Arc<RwLock<bool>>) {
+    let cont = cont.clone();
+
     println!("Listening on {}:{}", host, port);
     let server = Server::bind((host, port)).unwrap();
 
     let mut next_client_id = 0;
 
     for connection in server {
+        if !*cont.read().unwrap() {
+            break;
+        }
+
         let temp = game_messages_sender.clone();
         let id = next_client_id;
         next_client_id += 1;
@@ -44,20 +54,26 @@ pub fn listen(host: &str, port: u16, game_messages_sender: mpsc::Sender<WebSocke
             }
         });
     }
+
+    println!("Server killed after {} connections",
+             cmp::max(next_client_id, 1) - 1);
 }
 
-/// Spawns the main game loop in a separate thread. Non-blocking.
+/// Spawns the main game loop in a separate thread and returns the handle therefor. Non-blocking.
 ///
 /// The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
-pub fn start_game_loop(game_messages: mpsc::Receiver<WebSocketEvent>) {
+pub fn start_game_loop(game_messages: mpsc::Receiver<WebSocketEvent>,
+                       cont: &Arc<RwLock<bool>>)
+                       -> thread::JoinHandle<()> {
     static ITER_LENGTH: u64 = 16 * 1000000; // 16 milliseconds
 
-    let _ = thread::spawn(move || {
+    let cont = cont.clone();
+    thread::spawn(move || {
         let mut game_state = GameState::new();
 
         let start_time = time::precise_time_ns();
         let mut iter: u64 = 1;
-        loop {
+        while *cont.read().unwrap() {
             game_state.process_websocket_events(&game_messages);
             game_state.process_game_update();
             game_state.send_state_updates();
@@ -70,7 +86,7 @@ pub fn start_game_loop(game_messages: mpsc::Receiver<WebSocketEvent>) {
                 thread::sleep(Duration::new(0, time_till_next as u32));
             }
         }
-    });
+    })
 }
 
 #[derive(Debug)]
@@ -107,8 +123,8 @@ fn handle_connection(id: u32,
     let mut client = try!(response.send()); // Send the response
 
     let ip = try!(client.get_mut_sender()
-                   .get_mut()
-                   .peer_addr());
+                        .get_mut()
+                        .peer_addr());
 
     println!("Connection from {} with id {}", ip, id);
 

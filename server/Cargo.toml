@@ -15,6 +15,7 @@ authors = ["nabijaczleweli <nabijaczleweli@gmail.com>",
 clap = "2.2"
 rand = "0.3"
 time = "0.1"
+ctrlc = "1.1"
 serde = "0.7"
 websocket = "0.16"
 serde_json = "0.7"
