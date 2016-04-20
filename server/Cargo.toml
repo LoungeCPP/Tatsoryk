@@ -12,10 +12,10 @@ authors = ["nabijaczleweli <nabijaczleweli@gmail.com>",
            "Lalaland <ethan.steinberg@gmail.com"]
 
 [dependencies]
-clap = "2.2"
+clap = "2.3"
 rand = "0.3"
 time = "0.1"
-ctrlc = "1.1"
+ctrlc = "2.0"
 serde = "0.7"
 websocket = "0.16"
 serde_json = "0.7"

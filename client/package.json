@@ -22,8 +22,8 @@
     "devDependencies": {
         "bower": "^1.7.9",
         "browserify": "^13.0.0",
-        "typescript": "^1.8.9",
-        "typings": "^0.7.12",
+        "typescript": "^1.8.10",
+        "typings": "^0.8.1",
         "yuglify": "^0.1.4"
     },
     "dependencies": {
