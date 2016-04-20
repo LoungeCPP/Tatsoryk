@@ -3,6 +3,7 @@ import {GameSocket, Entity, MessageData} from './protocol';
 
 export class GameScreen {
     public state: MessageData.WorldState;
+    public bullet_ownership: { [bullet_id: number]: number } = {};
     playerId: number;
 
     // Current mouse position relative to canvas origin.

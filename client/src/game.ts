@@ -152,10 +152,18 @@ class Game {
         this.game.state.alivePlayers = this.game.state.alivePlayers.filter((player: Entity): boolean => {
             return player.id != msg.id;
         });
+        this.game.state.aliveBullets = this.game.state.aliveBullets.filter((bullet: Entity): boolean => {
+            var matches = this.game.bullet_ownership[bullet.id] == msg.id;
+            if (matches) {
+                this.game.bullet_ownership[bullet.id] = undefined;
+            }
+            return !matches;
+        });
     }
 
     handleShotsFired = (msg: MessageData.ShotsFired): void => {
         this.game.state.aliveBullets.push(new Entity(msg.bulletID, msg.position, msg.aim));
+        this.game.bullet_ownership[msg.bulletID] = msg.id;
     }
 
     handlePlayerSpawned = (msg: MessageData.PlayerSpawned): void => {

@@ -25,7 +25,7 @@ static TICKS_BETWEEN_FULL_UPDATES: u32 = 600; // 10s @ 60FPS
 #[derive(Debug)]
 pub struct GameState {
     players: HashMap<u32, message::Player>,
-    bullets: HashMap<u32, message::Bullet>,
+    bullets: HashMap<u32, message::OwnedBullet>,
     clients: HashMap<u32, Client>,
     next_bullet_id: u32,
     ticks_since_last_full_update: u32,
@@ -125,20 +125,21 @@ impl GameState {
         let mut destroyed_players = Vec::new();
 
         for (_, bullet) in &mut self.bullets {
-            bullet.x += bullet.move_x.unwrap_or(0.0) * BULLET_SPEED;
-            bullet.y += bullet.move_y.unwrap_or(0.0) * BULLET_SPEED;
+            bullet.bullet.x += bullet.bullet.move_x.unwrap_or(0.0) * BULLET_SPEED;
+            bullet.bullet.y += bullet.bullet.move_y.unwrap_or(0.0) * BULLET_SPEED;
 
-            if bullet.x < 0.0 || bullet.x > MAP_WIDTH || bullet.y < 0.0 || bullet.y > MAP_HEIGHT {
-                destroyed_bullets.push(bullet.id);
+            if bullet.bullet.x < 0.0 || bullet.bullet.x > MAP_WIDTH || bullet.bullet.y < 0.0 ||
+               bullet.bullet.y > MAP_HEIGHT {
+                destroyed_bullets.push(bullet.bullet.id);
             }
         }
 
         // Check for collisions
-        for (_, bullet) in &mut self.bullets {
-            for (_, player) in &mut self.players {
-                if distance_between(bullet.x, bullet.y, player.x, player.y) <
+        for (_, bullet) in &self.bullets {
+            for (_, player) in &self.players {
+                if distance_between(bullet.bullet.x, bullet.bullet.y, player.x, player.y) <
                    BULLET_RADIUS + PLAYER_RADIUS {
-                    destroyed_bullets.push(bullet.id);
+                    destroyed_bullets.push(bullet.bullet.id);
                     destroyed_players.push(player.id);
                 }
             }
@@ -216,6 +217,16 @@ impl GameState {
                 let _ = self.clients.remove(&client_id);
 
                 self.send_to_everybody(message::Message::PlayerLeft { id: client_id });
+
+                let mut destroyed_bullets = Vec::new();
+                for (_, bullet) in &self.bullets {
+                    if bullet.owner_id == client_id {
+                        destroyed_bullets.push(bullet.bullet.id);
+                    }
+                }
+                for bullet_id in destroyed_bullets {
+                    let _ = self.bullets.remove(&bullet_id);
+                }
             }
             WebSocketEvent::ClientMessage { client_id, message } => {
                 self.process_client_message(client_id, message);
@@ -231,6 +242,7 @@ impl GameState {
                                   .collect();
         let bullets: Vec<_> = self.bullets
                                   .values()
+                                  .map(|b| &b.bullet)
                                   .cloned()
                                   .collect();
         message::Message::WorldState {
@@ -280,12 +292,14 @@ impl GameState {
                 let start_x = player.x + move_x * (BULLET_RADIUS + PLAYER_RADIUS + 1.0);
                 let start_y = player.y + move_y * (BULLET_RADIUS + PLAYER_RADIUS + 1.0);
 
-                let _ = self.bullets.insert(self.next_bullet_id,
-                                            message::Bullet::moving(self.next_bullet_id,
-                                                                    start_x,
-                                                                    start_y,
-                                                                    move_x,
-                                                                    move_y));
+                let new_bullet = message::Bullet::moving(self.next_bullet_id,
+                                                         start_x,
+                                                         start_y,
+                                                         move_x,
+                                                         move_y);
+                let _ = self.bullets
+                            .insert(self.next_bullet_id,
+                                    message::OwnedBullet::new(new_bullet, player.id));
 
                 let resp = message::Message::ShotsFired {
                     id: player.id,
@@ -325,7 +339,8 @@ impl GameState {
             }
 
             for (_, bullet) in &self.bullets {
-                if distance_between(x, y, bullet.x, bullet.y) < PLAYER_RADIUS + BULLET_RADIUS {
+                if distance_between(x, y, bullet.bullet.x, bullet.bullet.y) <
+                   PLAYER_RADIUS + BULLET_RADIUS {
                     collides = true;
                     break;
                 }

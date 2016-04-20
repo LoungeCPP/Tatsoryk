@@ -94,6 +94,24 @@ macro_rules! player_or_bullet {
 player_or_bullet!(Player, "Player");
 player_or_bullet!(Bullet, "Bullet");
 
+/// A Bullet owned by a player specified by its ID
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct OwnedBullet {
+    /// The owned bullet
+    pub bullet: Bullet,
+    /// The owner's ID
+    pub owner_id: u32,
+}
+
+impl OwnedBullet {
+    pub fn new(bullet: Bullet, owner_id: u32) -> Self {
+        OwnedBullet {
+            bullet: bullet,
+            owner_id: owner_id,
+        }
+    }
+}
+
 fn unpack_f32(val: &serde_json::Value) -> Result<f32, MessageError> {
     match val {
         &serde_json::Value::F64(f) => Ok(f as f32),
@@ -118,7 +136,7 @@ mod tests {
     use std::collections::BTreeMap;
     use rand::{thread_rng, Rng};
     use serde_json::Value;
-    use self::super::Player;
+    use self::super::{Player, Bullet, OwnedBullet};
     use self::super::super::MessageError;
 
     #[test]
@@ -208,6 +226,40 @@ mod tests {
             MessageError::PropertyMissing(_) => {}
             me => panic!(format!("Incorrect error type: {:?}, should be PropertyMissing", me)),
         }
+    }
+
+    #[test]
+    fn new_owned_static_bullet_matches_manual_construct() {
+        let mut rng = thread_rng();
+        let owner_id: u32 = rng.gen();
+        let id: u32 = rng.gen();
+        let x = gen_f32(&mut rng);
+        let y = gen_f32(&mut rng);
+
+        let bullet = Bullet::not_moving(id, x, y);
+        assert_eq!(OwnedBullet::new(bullet, owner_id),
+                   OwnedBullet {
+                       bullet: bullet,
+                       owner_id: owner_id,
+                   });
+    }
+
+    #[test]
+    fn new_owned_moving_bullet_matches_manual_construct() {
+        let mut rng = thread_rng();
+        let owner_id: u32 = rng.gen();
+        let id: u32 = rng.gen();
+        let x = gen_f32(&mut rng);
+        let y = gen_f32(&mut rng);
+        let move_x = gen_f32(&mut rng);
+        let move_y = gen_f32(&mut rng);
+
+        let bullet = Bullet::moving(id, x, y, move_x, move_y);
+        assert_eq!(OwnedBullet::new(bullet, owner_id),
+                   OwnedBullet {
+                       bullet: bullet,
+                       owner_id: owner_id,
+                   });
     }
 
     fn static_player_expected_json(id: u32, x: f32, y: f32) -> Value {
