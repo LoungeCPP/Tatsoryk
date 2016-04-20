@@ -40,7 +40,7 @@ fn main() {
         let host = opts.host.clone();
         let port = opts.port;
         let cont = cont.clone();
-        ctrlc::CtrlC::set_handler(move || {
+        ctrlc::set_handler(move || {
             println!("Ctrl+C received, terminating...");
             *cont.write().unwrap() = false;
             let _ = Client::connect(Url::parse(&format!("ws://{}:{}", host, port)[..]).unwrap());

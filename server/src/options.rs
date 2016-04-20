@@ -1,6 +1,6 @@
-use clap::{App, Arg};
+use clap::{App, Arg, AppSettings};
 
-/// Representation of the application's of all configurable values
+/// Representation of the application's all configurable values
 #[derive(Debug, Clone, Hash)]
 pub struct Options {
     /// Host to connect to. Default: `"localhost"`
@@ -15,9 +15,10 @@ impl Options {
         static USAGE: &'static str = "[host] 'Host to connect to. Default: localhost'";
 
         let matches = App::new("tatsoryk-server")
+                          .setting(AppSettings::ColoredHelp)
                           .version(env!("CARGO_PKG_VERSION"))
                           .author("nabijaczleweli <nabijaczleweli@gmail.com>,\n\
-                                   Cat Plus Plus <piotrlegnica@piotrl.pl>\n\
+                                   Cat Plus Plus <piotrlegnica@piotrl.pl>,\n\
                                    Lalaland <ethan.steinberg@gmail.com>")
                           .about("Implementation of the server for Tatsoryk")
                           .args_from_usage(USAGE)
