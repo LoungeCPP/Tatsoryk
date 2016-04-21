@@ -41,6 +41,6 @@ script:
           if [ -n "$DEPLOY" ] && [ -n "$TRAVIS_TAG" ]; then
               mkdir -p "$HOME/deploy" "$HOME/tatsoryk-client";
               awk '/<script/ {print($2)}' index.html | sed -r 's:src="(.+)">.*:\1:g' | xargs cp --parents -t "$HOME/tatsoryk-client/" "index.html" "game.css";
-              tar -caf "$HOME/deploy/tatsoryk-client.tbz2" "$HOME/tatsoryk-client";
+              cd "$HOME" && tar -caf "$HOME/deploy/tatsoryk-client.tbz2" "tatsoryk-client";
           fi
       fi
