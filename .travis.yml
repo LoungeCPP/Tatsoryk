@@ -3,22 +3,44 @@ matrix:
     include:
         - language: rust
           rust: stable
+          env: DEPLOY=true DEPLOY_FILE="tatsoryk-server"
         - language: rust
           rust: beta
         - language: rust
           rust: nightly
         - language: node_js
           node_js: "5.1"
+          env: DEPLOY=true DEPLOY_FILE="tatsoryk-client.tbz2"
         - language: node_js
           node_js: "4.2"
+
+deploy:
+  provider: releases
+  api_key:
+    secure: "bzFaRIjuia7hx5O/EPhlA+89txEa8sojOoBsO7Dt9a39P0Y0kFkxGQ0Ds4FpGCD5hyn9R1N1EE6ATrXUQi8GGogvKcd0sxM86KLNGEvYDpbQGm6eMy5v33KOuRQfHLpM72c1IvUv/wBDIK+bdN6W0oQEZwcnHJt3md0tngQBAcX6Sr9Lszof2xws1oSkNOyXOsvFkH8up1hPU25UPZVtT79RUDxTnIaYX93maxIxV2Y6gj0gB8OPZWs7ai6Ig9sX0rxFxb+BDtXbP+CnOg8+6adEVqr16rjFNmlgVc6U77TWSXxsu9eAk/lFkjimH9v4eqSVJwMZxs9UK1y9/jrK9LKUbxTBDUOKa62eb7kZnJX/ZER2GF76L2xYNuma8IlwARXNGz19W6J4KjPN8kRUqVmn2J3Ud32g7GDmqA0m2SY7CKAnfhvoGmy4pv6osAVOTnmQxKRP5EfTj1/D9ekpkCpQO5481qZHm9y3Rk+TQHM9k1svm+J29HqBF77lQEZ3ltHm8TObFFfJbKpPx71PKmI0DoCEKd6tEQB42CgbOB3Lg2pqUFIpzcMSrXPatBbR1TXFTxQmAUPUBOCzgAk9IHKoMiGH/sR7ephPNp8KJ539//ImZYum2LHcRmqbq8N+S/mj5fT9f4ApbAvizyQd0/x4rSIUEHOttajD/DhS1bM="
+  file: "$HOME/deploy/$DEPLOY_FILE"
+  skip_cleanup: true
+  on:
+    tags: true
+    condition: $DEPLOY = true
 
 script:
     - if [ -n "$TRAVIS_RUST_VERSION" ]; then
           cd server;
           cargo test;
+          if [ -n "$DEPLOY" ] && [ -n "$TRAVIS_TAG" ]; then
+              cargo build --release;
+              mkdir -p "$HOME/deploy";
+              strip --strip-all --remove-section=.comment --remove-section=.note "target/release/tatsoryk-server";
+              cp "target/release/tatsoryk-server" "$HOME/deploy/";
+          fi
       fi
     - if [ -n "$TRAVIS_NODE_VERSION" ]; then
           cd client;
           make;
+          if [ -n "$DEPLOY" ] && [ -n "$TRAVIS_TAG" ]; then
+              mkdir -p "$HOME/deploy" "$HOME/tatsoryk-client";
+              awk '/<script/ {print($2)}' index.html | sed -r 's:src="(.+)">.*:\1:g' | xargs cp --parents -t "$HOME/tatsoryk-client/" "index.html" "game.css";
+              tar -caf "$HOME/deploy/tatsoryk-client.tbz2" "$HOME/tatsoryk-client";
+          fi
       fi
-
