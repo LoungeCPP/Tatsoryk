@@ -140,22 +140,19 @@ impl GameState {
                 if distance_between(bullet.bullet.x, bullet.bullet.y, player.x, player.y) <
                    BULLET_RADIUS + PLAYER_RADIUS {
                     destroyed_bullets.push(bullet.bullet.id);
-                    destroyed_players.push(player.id);
+                    destroyed_players.push((player.id, bullet.bullet.id));
                 }
             }
         }
 
         // Process destroy requests
-        for bullet_id in destroyed_bullets {
-            let _ = self.bullets.remove(&bullet_id);
-        }
-
         let mut rng = thread_rng();
-        for player_id in destroyed_players {
+        for (player_id, bullet_id) in destroyed_players {
+            let bullet = self.bullets.get(&bullet_id).unwrap();
             self.send_to_everybody(message::Message::PlayerDestroyed {
                 id: player_id,
-                killer_id: None,
-                bullet_id: None,
+                killer_id: Some(bullet.owner_id),
+                bullet_id: Some(bullet_id),
             });
 
             let (new_x, new_y) = self.random_free_spot(&mut rng);
@@ -171,6 +168,10 @@ impl GameState {
                 x: new_x,
                 y: new_y,
             });
+        }
+
+        for bullet_id in destroyed_bullets {
+            let _ = self.bullets.remove(&bullet_id);
         }
     }
 

@@ -5,7 +5,7 @@ repository = "https://github.com/LoungeCPP/Tatsoryk/tree/master/server"
 readme = "README.md"
 keywords = ["game", "lounge", "server"]
 license = "MIT"
-version = "0.1.0"
+version = "0.1.1"
 # Remember to also modify options.rs authors
 authors = ["nabijaczleweli <nabijaczleweli@gmail.com>",
            "Cat Plus Plus <piotrlegnica@piotrl.pl>",
