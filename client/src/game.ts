@@ -96,7 +96,7 @@ class Game {
                 return; // if the bullet just went OOB, no point checking for player hits... right?
             }
             this.game.state.alivePlayers.forEach((player: Entity): void => {
-                if (this.bulletHitPlayer(bullet, player)) {
+                if (this.game.bullet_ownership[bullet.id] != player.id && this.bulletHitPlayer(bullet, player)) {
                     destroyedBullets.push(bullet.id);
                     killedPlayers.push(player.id);
                 }

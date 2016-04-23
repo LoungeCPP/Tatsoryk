@@ -137,7 +137,8 @@ impl GameState {
         // Check for collisions
         for (_, bullet) in &self.bullets {
             for (_, player) in &self.players {
-                if distance_between(bullet.bullet.x, bullet.bullet.y, player.x, player.y) <
+                if bullet.owner_id != player.id &&
+                   distance_between(bullet.bullet.x, bullet.bullet.y, player.x, player.y) <
                    BULLET_RADIUS + PLAYER_RADIUS {
                     destroyed_bullets.push(bullet.bullet.id);
                     destroyed_players.push((player.id, bullet.bullet.id));

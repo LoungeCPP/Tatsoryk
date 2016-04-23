@@ -1,6 +1,6 @@
 [root]
 name = "tatsoryk-server"
-version = "0.1.0"
+version = "0.1.2"
 dependencies = [
  "clap 2.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ctrlc 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
