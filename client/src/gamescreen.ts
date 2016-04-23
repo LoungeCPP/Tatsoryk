@@ -74,16 +74,20 @@ export class GameScreen {
         };
     }
 
-    // Process a key down event
-    onKeyDown(key: GameInput): void {
-        this.keymap[key] = true;
-        this.updateMoving();
+    // Return a key down event processor bound to specified GameInput
+    onKeyDown(key: GameInput): () => void {
+        return (): void => {
+            this.keymap[key] = true;
+            this.updateMoving();
+        };
     }
 
-    // Process a key up event
-    onKeyUp(key: GameInput): void {
-        this.keymap[key] = false;
-        this.updateMoving();
+    // Return a key up event processor bound to specified GameInput
+    onKeyUp(key: GameInput): () => void {
+        return (): void => {
+            this.keymap[key] = false;
+            this.updateMoving();
+        };
     }
 
     // Draw the current game.

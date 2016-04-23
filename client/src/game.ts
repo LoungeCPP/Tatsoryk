@@ -304,8 +304,8 @@ class Game {
         var bind = (key: string, input: GameInput) => {
             this.keyboard.register_combo({
                 keys: key,
-                on_keydown: this.game.onKeyDown.bind(this.game, input),
-                on_keyup: this.game.onKeyUp.bind(this.game, input),
+                on_keydown: this.game.onKeyDown(input),
+                on_keyup: this.game.onKeyUp(input),
                 on_release: undefined,
                 this: undefined,
                 prevent_default: true,
