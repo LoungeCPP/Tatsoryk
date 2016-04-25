@@ -6,7 +6,8 @@ import {GameScreen} from './gamescreen';
 import {GameSocket, MessageData, Entity} from './protocol';
 
 class Game {
-    static tickPeriod: number = 1.0 / 60;
+    static TPS: number = 60;
+    static tickPeriod: number = 1.0 / Game.TPS;
 
     transport: GameWSTransport = null;
     socket: GameSocket = null;
@@ -66,7 +67,7 @@ class Game {
         var maxDistanceY = this.canvas.height - this.welcomeMessage.size;
         this.game.state.alivePlayers.forEach((player: Entity): void => {
             if (player.direction != null) {
-                var move = player.direction.clone().multiplyScalar(this.welcomeMessage.speed);
+                var move = player.direction.clone().multiplyScalar(this.welcomeMessage.speed / Game.TPS);
                 var newpos = player.position.clone().add(move);
                 if (!this.game.state.alivePlayers.some((cmpPlayer: Entity) => {
                     return cmpPlayer.id != player.id && cmpPlayer.distanceSq(newpos) <= minPlayerDistanceSq;
@@ -81,8 +82,8 @@ class Game {
     updateBulletStates(): void {
         this.game.state.aliveBullets.forEach((bullet: Entity): void => {
             if (bullet.direction != null) {
-                bullet.position.x += bullet.direction.x * this.welcomeMessage.bulletSpeed;
-                bullet.position.y += bullet.direction.y * this.welcomeMessage.bulletSpeed;
+                bullet.position.x += bullet.direction.x * this.welcomeMessage.bulletSpeed / Game.TPS;
+                bullet.position.y += bullet.direction.y * this.welcomeMessage.bulletSpeed / Game.TPS;
             }
         });
     }
