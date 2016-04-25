@@ -11,6 +11,7 @@ use rand::{thread_rng, Rng};
 use self::super::Client;
 use self::super::WebSocketEvent;
 
+// TODO: substitute when doing config, see `mod.rs`
 const TPS: u32 = 60;
 static BULLET_RADIUS: f32 = 5.0;
 static PLAYER_RADIUS: f32 = 10.0;
