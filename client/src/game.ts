@@ -259,7 +259,7 @@ class Game {
 
         context.restore();
 
-        window.requestAnimationFrame(this.frame);
+        setTimeout((): void => { window.requestAnimationFrame(this.frame); }, Game.tickPeriod * 1000 - delta);
     }
 
     //
