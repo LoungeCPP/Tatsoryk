@@ -89,17 +89,8 @@ impl GameState {
             let mut collides_with_map = false;
 
             if !collides_with_player {
-                player.x = (player.x + player.move_x.unwrap_or(0.0) * PLAYER_SPEED)
-                               .max(PLAYER_RADIUS)
-                               .min(MAP_WIDTH - PLAYER_RADIUS);
-                player.y = (player.y + player.move_y.unwrap_or(0.0) * PLAYER_SPEED)
-                               .max(PLAYER_RADIUS)
-                               .min(MAP_HEIGHT - PLAYER_RADIUS);
-
-                collides_with_map = (player.x == PLAYER_RADIUS ||
-                                     player.x == MAP_WIDTH - PLAYER_RADIUS) ||
-                                    (player.y == PLAYER_RADIUS ||
-                                     player.y == MAP_WIDTH - PLAYER_RADIUS);
+                collides_with_map = Self::move_player(&mut player.x, player.move_x) ||
+                                    Self::move_player(&mut player.y, player.move_y);
             }
 
             if collides_with_player || collides_with_map {
@@ -319,6 +310,7 @@ impl GameState {
         }
     }
 
+    /// Find a valid unoccupied spot for a player to spawn.
     fn random_free_spot<R: Rng>(&self, rng: &mut R) -> (f32, f32) {
         static MAX_ITERATIONS: u32 = 100;
 
@@ -358,6 +350,7 @@ impl GameState {
         (rng.gen_range(0.0, MAP_WIDTH), rng.gen_range(0.0, MAP_HEIGHT))
     }
 
+    /// Send a specified message to all connected clients.
     fn send_to_everybody(&self, what: message::Message) {
         let value = what.to_string();
         for (_, client) in &self.clients {
@@ -365,6 +358,17 @@ impl GameState {
             // We will eventually get a disconnect WebSocketMessage where we will cleanly do the disconnect.
             let _ = client.send(value.clone());
         }
+    }
+
+    /// Moves a player along one axis based on its current position and movement vector.
+    ///
+    /// Returns whether the player crashed into a wall during movement.
+    fn move_player(pos: &mut f32, mov: Option<f32>) -> bool {
+        let new_pos = *pos + mov.unwrap_or(0.0) * PLAYER_SPEED;
+        *pos = new_pos.max(PLAYER_RADIUS)
+                      .min(MAP_WIDTH - PLAYER_RADIUS);
+
+        new_pos < PLAYER_RADIUS || new_pos > MAP_WIDTH - PLAYER_RADIUS
     }
 }
 
