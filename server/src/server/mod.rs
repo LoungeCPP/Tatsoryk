@@ -27,7 +27,7 @@ use std::time::Duration;
 pub use self::events::*;
 pub use self::gamestate::GameState;
 
-// TODO: substitute when doing config, see `mod.rs`
+// TODO: substitute when doing config, see `gamestate.rs`
 const TPS: f32 = 60.0;
 
 /// The main listening loop for the server.
