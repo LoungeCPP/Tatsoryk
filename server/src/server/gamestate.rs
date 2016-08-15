@@ -11,13 +11,15 @@ use rand::{thread_rng, Rng};
 use self::super::Client;
 use self::super::WebSocketEvent;
 
+// TODO: substitute when doing config, see `mod.rs`
+const TPS: u32 = 60;
 static BULLET_RADIUS: f32 = 5.0;
 static PLAYER_RADIUS: f32 = 10.0;
-static BULLET_SPEED: f32 = 3.0;
-static PLAYER_SPEED: f32 = 2.0;
+static BULLET_SPEED: f32 = 3.0 * TPS as f32;
+static PLAYER_SPEED: f32 = 2.0 * TPS as f32;
 static MAP_HEIGHT: f32 = 500.0;
 static MAP_WIDTH: f32 = 500.0;
-static TICKS_BETWEEN_FULL_UPDATES: u32 = 600; // 10s @ 60FPS
+static TICKS_BETWEEN_FULL_UPDATES: u32 = 10 * TPS;
 
 /// The `GameState` contains the whole state of the game.
 ///
@@ -116,8 +118,8 @@ impl GameState {
         let mut destroyed_players = Vec::new();
 
         for (_, bullet) in &mut self.bullets {
-            bullet.bullet.x += bullet.bullet.move_x.unwrap_or(0.0) * BULLET_SPEED;
-            bullet.bullet.y += bullet.bullet.move_y.unwrap_or(0.0) * BULLET_SPEED;
+            bullet.bullet.x += bullet.bullet.move_x.unwrap_or(0.0) * BULLET_SPEED / TPS as f32;
+            bullet.bullet.y += bullet.bullet.move_y.unwrap_or(0.0) * BULLET_SPEED / TPS as f32;
 
             if bullet.bullet.x < 0.0 || bullet.bullet.x > MAP_WIDTH || bullet.bullet.y < 0.0 ||
                bullet.bullet.y > MAP_HEIGHT {
@@ -364,7 +366,7 @@ impl GameState {
     ///
     /// Returns whether the player crashed into a wall during movement.
     fn move_player(pos: &mut f32, mov: Option<f32>) -> bool {
-        let new_pos = *pos + mov.unwrap_or(0.0) * PLAYER_SPEED;
+        let new_pos = *pos + mov.unwrap_or(0.0) * PLAYER_SPEED / TPS as f32;
         *pos = new_pos.max(PLAYER_RADIUS)
                       .min(MAP_WIDTH - PLAYER_RADIUS);
 

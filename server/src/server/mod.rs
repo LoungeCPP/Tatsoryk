@@ -27,6 +27,9 @@ use std::time::Duration;
 pub use self::events::*;
 pub use self::gamestate::GameState;
 
+// TODO: substitute when doing config, see `gamestate.rs`
+const TPS: f32 = 60.0;
+
 /// The main listening loop for the server.
 pub fn listen(host: &str,
               port: u16,
@@ -61,11 +64,11 @@ pub fn listen(host: &str,
 
 /// Spawns the main game loop in a separate thread and returns the handle therefor. Non-blocking.
 ///
-/// The general idea for the game loop is to update the game state every 16 milliseconds (60 FPS), processing messages along the way.
+/// The general idea for the game loop is to update the game state every 1/TPS milliseconds, processing messages along the way.
 pub fn start_game_loop(game_messages: mpsc::Receiver<WebSocketEvent>,
                        cont: &Arc<RwLock<bool>>)
                        -> thread::JoinHandle<()> {
-    static ITER_LENGTH: u64 = 16 * 1000000; // 16 milliseconds
+    static ITER_LENGTH: u64 = (1.0 / TPS * 1000.0) as u64 * 1000000; // 1/TPS milliseconds
 
     let cont = cont.clone();
     thread::spawn(move || {
