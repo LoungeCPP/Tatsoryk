@@ -1,6 +1,6 @@
 use clap::{App, Arg, AppSettings};
 
-/// Representation of the application's of all configurable values
+/// Representation of the application's all configurable values
 #[derive(Debug, Clone, Hash)]
 pub struct Options {
     /// Host to connect to. Default: `"localhost"`
